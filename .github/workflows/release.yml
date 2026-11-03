@@ -1,28 +1,26 @@
 # Releasing is driven by the version in pyproject.toml. On a push to main, if
-# there is no `v<version>` tag yet, the publish job uploads the sdist and wheel
-# to PyPI, then tags the commit and creates a GitHub release with the same
-# files. If the tag already exists, nothing is published. So to release: bump
+# there is no `v<version>` tag yet, this builds the sdist and wheel, checks that
+# the wheel imports, then tags the commit and creates a GitHub release with both
+# files. If the tag already exists, nothing is released. So to release: bump
 # `version` in pyproject.toml in a PR and merge it.
 #
-# PyPI upload uses Trusted Publishing (OIDC). The PyPI project lists this
-# repository as a trusted publisher:
-#   owner: optimaru · repository: external-solver · workflow: publish.yml · environment: pypi
-# and the GitHub Environment `pypi` must exist.
-name: publish
+# There is no PyPI upload. Install from the tag:
+#   external-solver @ git+https://github.com/optimaru/external-solver@v<version>
+name: release
 
 on:
   pull_request:
-    paths: [pyproject.toml, src/**, .github/workflows/publish.yml]
+    paths: [pyproject.toml, src/**, .github/workflows/release.yml]
   push:
     branches: [main]
-    paths: [pyproject.toml, src/**, .github/workflows/publish.yml]
+    paths: [pyproject.toml, src/**, .github/workflows/release.yml]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: publish-${{ github.ref }}
+  group: release-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -40,43 +38,37 @@ jobs:
           version=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
           echo "version=${version}" >> "$GITHUB_OUTPUT"
           if git ls-remote --exit-code --tags origin "refs/tags/v${version}" >/dev/null; then exists=true; else exists=false; fi
-          if [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF}" = "refs/heads/main" ] && [ "${exists}" = "false" ]; then
+          if [ "${GITHUB_EVENT_NAME}" != "pull_request" ] && [ "${GITHUB_REF}" = "refs/heads/main" ] && [ "${exists}" = "false" ]; then
             release=true
           else
             release=false
           fi
           echo "release=${release}" >> "$GITHUB_OUTPUT"
-          echo "### external-solver ${version} · tag exists: ${exists} · publish: ${release}" >> "$GITHUB_STEP_SUMMARY"
+          echo "### external-solver ${version} · tag exists: ${exists} · release: ${release}" >> "$GITHUB_STEP_SUMMARY"
       - name: Build sdist and wheel
         run: uv build
       - name: Smoke-test the wheel
         run: |
           uv venv /tmp/smoke
           uv pip install --python /tmp/smoke/bin/python dist/*.whl
-          /tmp/smoke/bin/python -c "import importlib, external_solver as e; [importlib.import_module(f'external_solver.{n}').catalog() for n in e.__all__]"
+          /tmp/smoke/bin/python -c "import importlib, external_solver as e; [importlib.import_module(f'external_solver.{n}').catalog() for n in e.__all__ if n != 'NoSolutionError']"
       - uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/
 
-  publish:
-    name: publish v${{ needs.build.outputs.version }}
+  release:
+    name: release v${{ needs.build.outputs.version }}
     if: needs.build.outputs.release == 'true'
     needs: build
     runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/project/external-solver/${{ needs.build.outputs.version }}/
     permissions:
-      id-token: write
       contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist
-      # PyPI first: if the upload fails, no tag is created and the next push retries.
-      - uses: pypa/gh-action-pypi-publish@release/v1
       - name: Tag and GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -87,4 +79,4 @@ jobs:
             --target "${GITHUB_SHA}" \
             --title "external-solver ${VERSION}" \
             --generate-notes \
-            --notes "pip install external-solver==${VERSION}"
+            --notes "Install: external-solver @ git+https://github.com/${GITHUB_REPOSITORY}@v${VERSION}"

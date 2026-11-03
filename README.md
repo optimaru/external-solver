@@ -46,6 +46,13 @@ integral offsets, and some constraints are structural in a CP-SAT model, so
 moving them to `level="soft"` is refused. Levels are optimized
 lexicographically, hard first.
 
+## When there is no solution
+
+A solve that ends without any solution raises `external_solver.NoSolutionError`
+(a `RuntimeError`). Its `status` is CP-SAT's status name, and `infeasible` is
+true only when CP-SAT proved that no solution exists; otherwise the time ran
+out before a first solution was found.
+
 ## Versions
 
 `external-solver 0.1.x` follows the `optimaru 0.3` constraint contract. The

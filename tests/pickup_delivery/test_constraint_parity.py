@@ -13,6 +13,7 @@ from optimaru.pickup_delivery.models import (
     VehicleModel,
     to_plan,
 )
+from external_solver import NoSolutionError
 from external_solver.pickup_delivery import solve_request
 
 
@@ -278,9 +279,10 @@ def test_request_coupling_is_scored_by_the_engine_and_rejected_by_cpsat(
     raw_cost, _ = _engine_cost(request, routes, name)
     assert raw_cost == 1  # exactly one broken pickup/dropoff relationship
 
-    with pytest.raises(RuntimeError, match="INFEASIBLE"):
+    with pytest.raises(NoSolutionError, match="INFEASIBLE") as raised:
         solve_request(
             request,
             constraints=["travel_time_cost"],
             _fixed_routes=routes,
         )
+    assert raised.value.infeasible

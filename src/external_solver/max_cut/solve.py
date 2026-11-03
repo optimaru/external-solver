@@ -19,6 +19,7 @@ from optimaru.max_cut.models import MaxCutProblemModel
 from ortools.sat.python import cp_model
 
 from external_solver._plugins import ConstraintConfig, ObjectiveBuilder
+from external_solver.errors import NoSolutionError
 
 from .constraints import REGISTRY, MaxCutContext, _differs
 
@@ -81,7 +82,7 @@ def solve(
     solver.parameters.num_search_workers = max(1, num_workers)
     status = built.objective.solve(solver)
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-        raise RuntimeError(f"CP-SAT did not find a solution (status={solver.status_name(status)})")
+        raise NoSolutionError(solver.status_name(status))
 
     solved = problem.model_copy(deep=True)
     solved.partition = {vertex: int(solver.value(variable)) for vertex, variable in built.context.side.items()}

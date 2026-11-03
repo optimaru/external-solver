@@ -15,12 +15,15 @@ import OR-Tools or any engine domain.
 import importlib
 from importlib.metadata import PackageNotFoundError, version
 
+from .errors import NoSolutionError
+
 try:
     __version__ = version("external-solver")
 except PackageNotFoundError:  # running from a source tree
     __version__ = "0.0.0"
 
 __all__ = [
+    "NoSolutionError",
     "assembly_line_balancing",
     "bed_allocation",
     "bin_packing",
@@ -45,7 +48,7 @@ __all__ = [
 
 
 def __getattr__(name):
-    if name in __all__:
+    if name in __all__ and name != "NoSolutionError":
         module = importlib.import_module(f"{__name__}.{name}")
         globals()[name] = module
         return module

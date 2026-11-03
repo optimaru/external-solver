@@ -18,6 +18,7 @@ from optimaru.bin_packing.models import BinPackingProblemModel
 from ortools.sat.python import cp_model
 
 from external_solver._plugins import ConstraintConfig, ObjectiveBuilder
+from external_solver.errors import NoSolutionError
 
 from .constraints import REGISTRY, BinPackingContext
 
@@ -127,7 +128,7 @@ def solve(
         solver.parameters.num_search_workers = max(1, num_workers)
         status = built.objective.solve(solver)
         if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-            raise RuntimeError(f"CP-SAT did not find a solution (status={solver.status_name(status)})")
+            raise NoSolutionError(solver.status_name(status))
         count = len(problem.items)
         for index, item in enumerate(solved.items):
             item.bin = next(b for b in range(count) if solver.value(built.context.assignments[index, b]))

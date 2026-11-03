@@ -16,6 +16,7 @@ from optimaru.employee_scheduling.models import (
 from ortools.sat.python import cp_model
 
 from external_solver._plugins import ConstraintConfig
+from external_solver.errors import NoSolutionError
 
 from .constraints import REGISTRY, RulePlugin, ScheduleContext, registry_for
 
@@ -120,7 +121,7 @@ def solve(
     solver.parameters.num_search_workers = max(1, num_workers)
     status = objective.solve(solver)
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-        raise RuntimeError(f"CP-SAT did not find a solution (status={solver.status_name(status)})")
+        raise NoSolutionError(solver.status_name(status))
     if _proxy_score is not None:
         _proxy_score.update(objective.score(solver))
 

@@ -1,7 +1,8 @@
 # Releasing is driven by the version in pyproject.toml. On a push to main, if
-# there is no `v<version>` tag yet, this builds the sdist and wheel, checks that
-# the wheel imports, then tags the commit and creates a GitHub release with both
-# files. If the tag already exists, nothing is released. So to release: bump
+# there is no `v<version>` tag yet, this installs the package from source, checks
+# that every use case imports, then tags the commit and creates a GitHub release.
+# No wheel or sdist is attached: dependents build from the tag's source. If the
+# tag already exists, nothing is released. So to release: bump
 # `version` in pyproject.toml in a PR and merge it.
 #
 # There is no PyPI upload. Install from the tag:
@@ -45,6 +46,30 @@ jobs:
           fi
           echo "release=${release}" >> "$GITHUB_OUTPUT"
           echo "### external-solver ${version} · tag exists: ${exists} · release: ${release}" >> "$GITHUB_STEP_SUMMARY"
+      # Pure Python: nothing is prebuilt. A dependent installs from the tag and builds from source, as here.
+      - name: Install from source and import every use case
+        run: |
+          uv venv /tmp/smoke
+          uv pip install --python /tmp/smoke/bin/python .
+          /tmp/smoke/bin/python -c "import importlib, external_solver as e; [importlib.import_module(f'external_solver.{n}').catalog() for n in e.__all__ if n != 'NoSolutionError']"
+
+  release: ${{ steps.v.outputs.release }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Read version and check for an existing tag
+        id: v
+        run: |
+          version=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/v${version}" >/dev/null; then exists=true; else exists=false; fi
+          if [ "${GITHUB_EVENT_NAME}" != "pull_request" ] && [ "${GITHUB_REF}" = "refs/heads/main" ] && [ "${exists}" = "false" ]; then
+            release=true
+          else
+            release=false
+          fi
+          echo "release=${release}" >> "$GITHUB_OUTPUT"
+          echo "### external-solver ${version} · tag exists: ${exists} · release: ${release}" >> "$GITHUB_STEP_SUMMARY"
       - name: Build sdist and wheel
         run: uv build
       - name: Smoke-test the wheel
@@ -65,16 +90,12 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist
       - name: Tag and GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.build.outputs.version }}
         run: |
-          gh release create "v${VERSION}" dist/* \
+          gh release create "v${VERSION}" \
             --repo "${GITHUB_REPOSITORY}" \
             --target "${GITHUB_SHA}" \
             --title "external-solver ${VERSION}" \

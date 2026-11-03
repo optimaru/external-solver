@@ -70,8 +70,9 @@ directory, packaged here so they can be installed next to the engine.
 ## Releasing
 
 Bump `version` in `pyproject.toml` and merge it to `main`. The release workflow
-builds the sdist and wheel, tags the commit `v<version>` and creates a GitHub
-release with both files.
+checks that the package installs from source, tags the commit `v<version>` and
+creates a GitHub release. Nothing is prebuilt; installing from the tag builds the
+pure-Python package from source.
 
 ## Development
 

@@ -53,35 +53,6 @@ jobs:
           uv pip install --python /tmp/smoke/bin/python .
           /tmp/smoke/bin/python -c "import importlib, external_solver as e; [importlib.import_module(f'external_solver.{n}').catalog() for n in e.__all__ if n != 'NoSolutionError']"
 
-  release: ${{ steps.v.outputs.release }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-      - name: Read version and check for an existing tag
-        id: v
-        run: |
-          version=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
-          echo "version=${version}" >> "$GITHUB_OUTPUT"
-          if git ls-remote --exit-code --tags origin "refs/tags/v${version}" >/dev/null; then exists=true; else exists=false; fi
-          if [ "${GITHUB_EVENT_NAME}" != "pull_request" ] && [ "${GITHUB_REF}" = "refs/heads/main" ] && [ "${exists}" = "false" ]; then
-            release=true
-          else
-            release=false
-          fi
-          echo "release=${release}" >> "$GITHUB_OUTPUT"
-          echo "### external-solver ${version} · tag exists: ${exists} · release: ${release}" >> "$GITHUB_STEP_SUMMARY"
-      - name: Build sdist and wheel
-        run: uv build
-      - name: Smoke-test the wheel
-        run: |
-          uv venv /tmp/smoke
-          uv pip install --python /tmp/smoke/bin/python dist/*.whl
-          /tmp/smoke/bin/python -c "import importlib, external_solver as e; [importlib.import_module(f'external_solver.{n}').catalog() for n in e.__all__ if n != 'NoSolutionError']"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: dist
-          path: dist/
-
   release:
     name: release v${{ needs.build.outputs.version }}
     if: needs.build.outputs.release == 'true'

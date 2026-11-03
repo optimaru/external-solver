@@ -16,7 +16,7 @@ from optimaru.employee_scheduling.models import (
     WorkerModel,
 )
 
-from external_solver.employee_scheduling import catalog, constraint_costs, solve
+from external_solver.employee_scheduling import catalog, constraint_costs, solve, solve_request
 from external_solver.employee_scheduling.constraints import PLUGINS, SCALE, registry_for
 from external_solver.employee_scheduling.solve import selection
 
@@ -712,3 +712,18 @@ def test_the_same_literal_pick_on_soft_matches_the_engine(offset, seed) -> None:
     proxy: dict[str, int] = {}
     solve(problem, time_limit_seconds=5, _fixed_workers=fixed, _proxy_score=proxy)
     assert proxy == _engine_scaled(problem, fixed)
+
+
+def test_solve_request_returns_the_engine_solution_shape() -> None:
+    """`solve_request` reads the request like the engine and answers with its `ScheduleSolution`."""
+    problem = _problem(models.default_rules()).model_copy(update={"timelimit": 5.0})
+    result = solve_request(problem)
+    assert isinstance(result, models.ScheduleSolution)
+    solved = solve(problem, time_limit_seconds=5.0)
+    scored = constraint_costs(solved)
+    assert (result.score_hard, result.score_soft) == (scored["hard"], scored["soft"])
+    assert result.feasible == (scored["hard"] >= 0)
+    listed = [entry.shift_id for entries in result.schedule.values() for entry in entries] + result.unassigned
+    assert sorted(listed) == sorted(shift.id for shift in problem.model_input.shifts)
+    # The engine can start from it: a solution of this use case in its own format.
+    models.with_initial_solution(problem, result)

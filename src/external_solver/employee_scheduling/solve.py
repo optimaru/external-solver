@@ -6,14 +6,20 @@ from collections.abc import Sequence
 from typing import Any
 
 from optimaru.employee_scheduling import DecomposedCalculator
-from optimaru.employee_scheduling.models import ScheduleRequest, to_schedule
+from optimaru.employee_scheduling.models import (
+    RuleTotal,
+    ScheduleRequest,
+    ScheduleSolution,
+    ShiftAssignmentModel,
+    to_schedule,
+)
 from ortools.sat.python import cp_model
 
 from external_solver._plugins import ConstraintConfig
 
 from .constraints import REGISTRY, RulePlugin, ScheduleContext, registry_for
 
-__all__ = ["catalog", "constraint_costs", "selection", "solve"]
+__all__ = ["catalog", "constraint_costs", "selection", "solve", "solve_request", "to_solution"]
 
 
 def catalog() -> list[dict]:
@@ -122,3 +128,51 @@ def solve(
     for s, shift in enumerate(solved.model_input.shifts):
         shift.worker = next((workers[w].id for w in range(len(workers)) if solver.value(x[s, w])), None)
     return solved
+
+
+def solve_request(request: ScheduleRequest) -> ScheduleSolution:
+    """`solve` called the way the engine's `solve_request` reads a request, returning its `ScheduleSolution`.
+
+    The time limit is `request.timelimit`, the seed `request.settings.random_seed` and the CP-SAT search
+    worker count `request.num_workers`. The engine's other search settings (`request.settings`) do not
+    apply to CP-SAT and are ignored.
+    """
+    solved = solve(
+        request,
+        time_limit_seconds=request.timelimit,
+        random_seed=request.settings.random_seed,
+        num_workers=request.num_workers,
+    )
+    return to_solution(solved)
+
+
+def to_solution(solved: ScheduleRequest) -> ScheduleSolution:
+    """The engine's `ScheduleSolution` for the workers set on `solved`, scored by the engine's calculator."""
+    model_input = solved.model_input
+    calculator = DecomposedCalculator([rule.to_spec() for rule in model_input.rules])
+    score = calculator.score(to_schedule(model_input))
+    per_worker: dict[str, list[ShiftAssignmentModel]] = {worker.id: [] for worker in model_input.workers}
+    unassigned: list[str] = []
+    for shift in model_input.shifts:
+        if shift.worker is None:
+            unassigned.append(shift.id)
+            continue
+        per_worker[shift.worker].append(
+            ShiftAssignmentModel(
+                shift_id=shift.id,
+                start=shift.start,
+                end=shift.end,
+                location=shift.location,
+                required_skill=shift.required_skill,
+            )
+        )
+    for assignments in per_worker.values():
+        assignments.sort(key=lambda assignment: assignment.start)
+    return ScheduleSolution(
+        schedule=per_worker,
+        unassigned=unassigned,
+        score_hard=score.hard,
+        score_soft=score.soft,
+        feasible=score.is_feasible(),
+        rule_totals=[RuleTotal(**total) for total in calculator.constraint_totals()],
+    )

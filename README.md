@@ -26,11 +26,14 @@ Every subpackage is named like the `optimaru` subpackage it mirrors:
 
 | Subpackage | Entry point |
 | --- | --- |
-| `assembly_line_balancing`, `bed_allocation`, `bin_packing`, `conference_scheduling`, `employee_scheduling`, `facility_location`, `flight_crew_scheduling`, `food_packaging`, `knapsack`, `maintenance_scheduling`, `max_cut`, `meeting_scheduling`, `project_job_scheduling`, `quadratic_assignment`, `semiconductor_scheduling`, `sports_league_scheduling`, `task_assigning`, `tournament_scheduling` | `solve(problem, *, time_limit_seconds=30.0, random_seed=0, num_workers=1, constraints=None)` |
+| `assembly_line_balancing`, `bed_allocation`, `bin_packing`, `conference_scheduling`, `facility_location`, `flight_crew_scheduling`, `food_packaging`, `knapsack`, `maintenance_scheduling`, `max_cut`, `meeting_scheduling`, `project_job_scheduling`, `quadratic_assignment`, `semiconductor_scheduling`, `sports_league_scheduling`, `task_assigning`, `tournament_scheduling` | `solve(problem, *, time_limit_seconds=30.0, random_seed=0, num_workers=1, constraints=None)` |
+| `employee_scheduling` | `solve(problem, *, time_limit_seconds=30.0, random_seed=0, num_workers=1)` and `solve_request(request)`, which returns the engine's `ScheduleSolution`; the rules are `problem.model_input.rules` |
 | `order_picking` | `solve(...)` and `solve_request(request, ...)` |
 | `pickup_delivery` | `solve_request(request, *, constraints=None, ...)` |
 
-Each also has `catalog()`, the selectable constraints with their default level
+A `solve_request` reads the time limit, seed and worker count from the request,
+like the engine's `solve_request`, and returns the same result model. Each
+subpackage also has `catalog()`, the selectable constraints with their default level
 and weight. `vehicle_routing` and `school_timetabling` have no model here yet.
 
 ## Constraint selection

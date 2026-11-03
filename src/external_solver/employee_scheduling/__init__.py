@@ -1,5 +1,5 @@
-"""CP-SAT backend for :mod:`es_scheduling`."""
+"""CP-SAT backend for :mod:`optimaru.employee_scheduling`."""
 
-from .solve import catalog, constraint_costs, solve
+from .solve import catalog, constraint_costs, solve, solve_request, to_solution
 
-__all__ = ["catalog", "constraint_costs", "solve"]
+__all__ = ["catalog", "constraint_costs", "solve", "solve_request", "to_solution"]

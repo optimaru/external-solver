@@ -1,0 +1,42 @@
+external-solver
+Copyright 2026 The optimaru Authors
+
+The CP-SAT models and the constraint-plugin contract in this package are
+derived from the benchmarks of optimaru (https://github.com/optimaru/optimaru),
+licensed under the Apache License, Version 2.0. The optimaru NOTICE follows.
+
+----------------------------------------------------------------------------
+
+optimaru
+Copyright 2026 The optimaru Authors
+
+This product's architecture, directory layout, class names and API are
+modelled on Timefold Solver (https://github.com/TimefoldAI/timefold-solver),
+which is licensed under the Apache License, Version 2.0.
+Copyright Timefold BV and contributors.
+
+The domain models and constraint definitions of the following use cases are
+C++ translations, with modifications, of the corresponding examples in
+Timefold Quickstarts (https://github.com/TimefoldAI/timefold-quickstarts),
+licensed under the Apache License, Version 2.0. Timefold Quickstarts is a
+derivative work of OptaPlanner Quickstarts, Copyright Red Hat, Inc.,
+affiliates, and contributors.
+
+  use-cases/bed-allocation
+  use-cases/conference-scheduling
+  use-cases/employee-scheduling
+  use-cases/facility-location
+  use-cases/flight-crew-scheduling
+  use-cases/food-packaging
+  use-cases/maintenance-scheduling
+  use-cases/meeting-scheduling
+  use-cases/order-picking
+  use-cases/project-job-scheduling
+  use-cases/school-timetabling
+  use-cases/sports-league-scheduling
+  use-cases/task-assigning
+  use-cases/tournament-scheduling
+  use-cases/vehicle-routing
+
+optimaru is an independent C++ implementation and is not affiliated with or
+endorsed by Timefold BV. "Timefold" is a trademark of Timefold BV.

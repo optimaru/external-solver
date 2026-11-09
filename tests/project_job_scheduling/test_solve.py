@@ -227,7 +227,7 @@ _CAPACITY = [non_renewable_resource_capacity_cost, renewable_resource_capacity_c
     [
         # Default (medium): the project delay dominates a doubled makespan.
         ([*_CAPACITY, project_delay_cost, MakespanCost(weight=2)], (0, -1, -10)),
-        # level="soft" demotes medium to SOFT on both paths (before 0.2.0 CP-SAT kept it
+        # level="soft" demotes medium to SOFT on both paths (an earlier CP-SAT model kept it
         # on medium and the engine ignored it): 3 + 2 * 3 = 9 beats 1 + 2 * 5 = 11.
         (
             [*_CAPACITY, ProjectDelayCost(level="soft"), MakespanCost(weight=2)],
@@ -278,7 +278,7 @@ def test_demoting_a_hard_constraint_scores_like_the_engine() -> None:
     ) == pytest.approx(tuple(engine))
 
 
-# --- 0.3.0: repeated picks and offset / clip ---------------------------------------
+# --- repeated picks and offset / clip ---------------------------------------
 
 #: Every (mode, delay) of the two jobs of _fast_or_slow(); the SINKs stay at mode 0,
 #: delay 0. Allocation order: P-job, P-end, Q-job, Q-end.
@@ -429,7 +429,7 @@ def test_a_fractional_offset_is_refused_by_cpsat() -> None:
         )
 
 
-# --- 0.3.0: clip=False with an offset stays off the hard score -------------------------
+# --- clip=False with an offset stays off the hard score -------------------------
 
 HARD_REFUSAL = (
     "constraint {q}: clip=False with a non-zero offset cannot be hard, because hard 0 must mean no "

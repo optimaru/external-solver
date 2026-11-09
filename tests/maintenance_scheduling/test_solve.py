@@ -95,7 +95,7 @@ def test_each_constraint_matches_domain_on_fixed_jobs(constraint) -> None:
 def test_cpsat_defaults_are_the_engine_defaults() -> None:
     """No hand-copied defaults: the CP-SAT catalog equals constraint_info().
 
-    Before 0.2.0 the plugins restated after_ideal_end_date (1'000'000) and
+    Earlier plugins restated after_ideal_end_date (1'000'000) and
     tag_conflict (1'000) as ClassVars; now both solvers read the C++ constants."""
     engine = {row.name: row for row in domain.constraint_info()}
     entries = catalog()
@@ -175,7 +175,7 @@ def test_reweighting_after_ideal_end_date_scores_like_the_engine() -> None:
     assert (solved.score_hard, solved.score_soft) == pytest.approx(tuple(engine))
 
 
-# --- 0.3.0: repeated picks and offset / clip ---------------------------------------
+# --- repeated picks and offset / clip ---------------------------------------
 
 
 def _three_days() -> MaintenanceScheduleModel:
@@ -350,7 +350,7 @@ def test_medium_is_refused_like_the_engine(level) -> None:
             )
 
 
-# --- 0.3.0: clip=False with an offset stays off the hard score -------------------------
+# --- clip=False with an offset stays off the hard score -------------------------
 
 HARD_REFUSAL = (
     "constraint {q}: clip=False with a non-zero offset cannot be hard, because hard 0 must mean no "

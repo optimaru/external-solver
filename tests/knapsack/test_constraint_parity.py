@@ -293,7 +293,7 @@ def test_selections_by_name_and_mapping_work():
         solve(Model.model_validate(PLAIN), time_limit_seconds=1, constraints=["capacity"])
 
 
-# --- 0.3.0: repeated picks and offset / clip ---------------------------------------
+# --- repeated picks and offset / clip ---------------------------------------
 
 SELECTIONS = {
     "repeat": [MandatoryItemsCost(), MandatoryItemsCost(weight=2), SelectedValueCost(), SelectedValueCost(weight=3)],
@@ -416,7 +416,7 @@ def test_a_fractional_offset_is_refused_by_cpsat():
         solve(Model.model_validate(PLAIN), time_limit_seconds=1, constraints=[KnapsackCapacityCost(offset=0.5)])
 
 
-# --- 0.3.0: clip=False with an offset stays off the hard score -------------------------
+# --- clip=False with an offset stays off the hard score -------------------------
 
 HARD_REFUSAL = (
     "constraint {q}: clip=False with a non-zero offset cannot be hard, because hard 0 must mean no "

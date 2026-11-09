@@ -200,7 +200,7 @@ def test_a_demoted_medium_term_counts_on_soft_in_both_solvers() -> None:
     assert _engine_levels(solved) == tuple(engine) == (0, -1.0)
 
 
-# --- 0.3.0: repeated picks and offset / clip ---------------------------------------
+# --- repeated picks and offset / clip ---------------------------------------
 
 
 def _two_employees() -> TaskAssigningSolutionModel:
@@ -364,7 +364,7 @@ def test_a_fractional_offset_is_refused_by_cpsat() -> None:
         )
 
 
-# --- 0.3.0: clip=False with an offset stays off the hard score -------------------------
+# --- clip=False with an offset stays off the hard score -------------------------
 # Medium folds below hard here, so it counts toward the hard score and refuses the
 # literal formula too (the objective is built with medium_fold="below_hard").
 

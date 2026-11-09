@@ -78,7 +78,7 @@ def test_each_constraint_matches_brute_force_independently(constraint) -> None:
     assert (solved.score_hard, solved.score_soft) == pytest.approx(expected)
 
 
-# --- 0.2.0: defaults from the engine, the knobs, and where parity holds ------
+# --- defaults from the engine, the knobs, and where parity holds ------
 
 
 def test_cpsat_defaults_are_the_engine_defaults() -> None:
@@ -330,7 +330,7 @@ def test_confrontation_alone_can_miss_the_engine_optimum() -> None:
     assert -solved.score_soft > min(engine.values())
 
 
-# --- 0.3.0: repeated picks and offset / clip ---------------------------------------
+# --- repeated picks and offset / clip ---------------------------------------
 
 #: Fully pinned layouts with unavailability facts: T0 twice on D0, T2 on D3. T1 has no
 #: fact, so the scoped team_unavailability_cost evaluates (and offsets charge) T0 and T2.
@@ -468,7 +468,7 @@ def test_a_fractional_offset_is_refused_by_cpsat() -> None:
         )
 
 
-# --- 0.3.0: clip=False with an offset stays off the hard score -------------------------
+# --- clip=False with an offset stays off the hard score -------------------------
 
 HARD_REFUSAL = (
     "constraint {q}: clip=False with a non-zero offset cannot be hard, because hard 0 must mean no "

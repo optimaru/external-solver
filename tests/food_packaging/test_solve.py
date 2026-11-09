@@ -232,7 +232,7 @@ def _both_paths(selection):
     [
         # Default (medium): the unassigned minutes dominate the soft makespan.
         ([unassigned_jobs_cost, squared_makespan_cost], (0, 0, -10000), True),
-        # level="soft" demotes medium to SOFT on both paths (before 0.2.0 CP-SAT moved
+        # level="soft" demotes medium to SOFT on both paths (an earlier CP-SAT model moved
         # it to medium and the engine ignored it): 100 soft beats 10000 soft.
         (
             [UnassignedJobsCost(level="soft"), squared_makespan_cost],
@@ -277,7 +277,7 @@ def test_demoting_a_hard_constraint_scores_like_the_engine() -> None:
     ) == pytest.approx(tuple(engine))
 
 
-# --- 0.3.0: repeated picks and offset / clip ---------------------------------------
+# --- repeated picks and offset / clip ---------------------------------------
 
 #: Pinned layouts of _two_line_problem(): (job order per line, operator per line). They
 #: cover an empty line, pooled jobs, a shared operator (cleaning conflicts) and lateness.
@@ -430,7 +430,7 @@ def test_a_fractional_offset_is_refused_by_cpsat() -> None:
         )
 
 
-# --- 0.3.0: clip=False with an offset stays off the hard score -------------------------
+# --- clip=False with an offset stays off the hard score -------------------------
 
 HARD_REFUSAL = (
     "constraint {q}: clip=False with a non-zero offset cannot be hard, because hard 0 must mean no "

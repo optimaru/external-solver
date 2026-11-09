@@ -235,7 +235,7 @@ def test_demoting_capacity_scores_like_the_engine() -> None:
     assert solved.score_hard == 0
 
 
-# --- 0.3.0: repeated picks and offset / clip ---------------------------------------
+# --- repeated picks and offset / clip ---------------------------------------
 
 
 def _three_by_three() -> FacilityLocationProblemModel:
@@ -327,7 +327,7 @@ def test_a_fractional_offset_is_refused_by_cpsat() -> None:
         solve(_three_by_three(), time_limit_seconds=1, constraints=[DistanceFromFacilityCost(offset=0.5)])
 
 
-# --- 0.3.0: clip=False with an offset stays off the hard score -------------------------
+# --- clip=False with an offset stays off the hard score -------------------------
 
 HARD_REFUSAL = (
     "constraint {q}: clip=False with a non-zero offset cannot be hard, because hard 0 must mean no "

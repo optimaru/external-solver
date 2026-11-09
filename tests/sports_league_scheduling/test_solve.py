@@ -146,7 +146,7 @@ def test_cpsat_defaults_are_the_engine_defaults() -> None:
 
 
 def test_workday_derby_default_weight_is_the_engines_1000() -> None:
-    """Before 0.2.0 the CP-SAT derby plugin defaulted to weight 1 while the engine
+    """An earlier CP-SAT derby plugin defaulted to weight 1 while the engine
     priced a workday derby at 1000; both now read 1000 from constraint_info()."""
     from external_solver.sports_league_scheduling import catalog
 
@@ -221,7 +221,7 @@ def test_demoting_team_conflict_scores_like_the_engine() -> None:
     assert (solved.score_hard, solved.score_soft) == pytest.approx(tuple(engine))
 
 
-# --- 0.3.0: repeated picks and offset / clip ---------------------------------------
+# --- repeated picks and offset / clip ---------------------------------------
 
 
 def _three_rounds() -> LeagueScheduleModel:
@@ -383,7 +383,7 @@ def test_medium_is_refused_like_the_engine(level) -> None:
             )
 
 
-# --- 0.3.0: clip=False with an offset stays off the hard score -------------------------
+# --- clip=False with an offset stays off the hard score -------------------------
 
 HARD_REFUSAL = (
     "constraint {q}: clip=False with a non-zero offset cannot be hard, because hard 0 must mean no "

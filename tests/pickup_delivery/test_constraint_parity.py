@@ -200,7 +200,7 @@ def test_constraint_matches_hand_calculation_and_other_backend(
     engine_penalty = -(engine_score.hard if level == "hard" else engine_score.soft)
     if level == "medium":
         # The engine score is two-level: it folds medium into soft by the
-        # domain's medium_fold (0.2.0: the weight is in medium units, so the
+        # domain's medium_fold (the weight is in medium units, so the
         # fold is no longer part of it). Compare in medium units.
         plan = to_plan(request.model_input)
         engine_penalty /= pdp.constraint_costs(plan)[name]["medium_fold"]["unit"]

@@ -244,7 +244,7 @@ def test_what_cpsat_cannot_honour_is_refused(selection, message):
         solve(Model.model_validate(PLAIN), time_limit_seconds=1, constraints=selection)
 
 
-# --- 0.3.0: repeated picks and offset / clip ---------------------------------------
+# --- repeated picks and offset / clip ---------------------------------------
 
 SELECTIONS = {
     "repeat": [
@@ -391,7 +391,7 @@ def test_medium_is_refused_like_the_engine(level):
             _engine_solve(TRIO, (0, 0, 1), selection)
 
 
-# --- 0.3.0: clip=False with an offset stays off the hard score -------------------------
+# --- clip=False with an offset stays off the hard score -------------------------
 
 HARD_REFUSAL = (
     "constraint {q}: clip=False with a non-zero offset cannot be hard, because hard 0 must mean no "

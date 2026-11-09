@@ -282,7 +282,7 @@ def test_structural_constraints_accept_their_engine_default(spec_class) -> None:
         assert _levels(solved.score)["hard"] == 0
 
 
-# --- 0.3.0: repeated picks and offset / clip ---------------------------------------
+# --- repeated picks and offset / clip ---------------------------------------
 
 # Everything on a line, the position in seconds of driving from the depots.
 LINE = {"V1": 0, "V2": 0, "P0": 100, "D0": 300, "P1": 200, "D1": 500}
@@ -496,7 +496,7 @@ def test_a_repeated_structural_pick_refuses_per_instance() -> None:
     assert _levels(solved.score)["hard"] == 0
 
 
-# --- 0.3.0: clip=False with an offset stays off the hard score -------------------------
+# --- clip=False with an offset stays off the hard score -------------------------
 
 HARD_REFUSAL = (
     "constraint {q}: clip=False with a non-zero offset cannot be hard, because hard 0 must mean no "

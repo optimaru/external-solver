@@ -253,7 +253,7 @@ def test_old_names_are_unknown() -> None:
             solve(_parity_problem(), time_limit_seconds=1, constraints=[old])
 
 
-# --- 0.3.0: repeated picks and offset / clip ---------------------------------------
+# --- repeated picks and offset / clip ---------------------------------------
 
 
 def _two_talks() -> ConferenceScheduleModel:
@@ -438,7 +438,7 @@ def test_every_plugin_adds_its_total_once() -> None:
     assert (solved.score_hard, solved.score_soft) == (0, 20 * 5)
 
 
-# --- 0.3.0: clip=False with an offset stays off the hard score -------------------------
+# --- clip=False with an offset stays off the hard score -------------------------
 
 HARD_REFUSAL = (
     "constraint {q}: clip=False with a non-zero offset cannot be hard, because hard 0 must mean no "

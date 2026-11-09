@@ -160,7 +160,7 @@ def test_domain_constraint_exponent_is_rejected_explicitly() -> None:
         ObjectiveBuilder(cp_model.CpModel(), ("hard", "soft"), SPECS, [_DomainConstraint(exponent=2.0)])
 
 
-# --- 0.2.0 knob contract ----------------------------------------------------
+# --- knob contract ----------------------------------------------------
 
 LEVELED = (
     ConstraintSpec("capacity", "Capacity", "hard", 1),
@@ -462,7 +462,7 @@ def test_score_costs_round_like_llround_at_the_double_edges() -> None:
     assert objective.score_costs({"capacity": {"costs": [2.5]}})["hard"] == -3
 
 
-# --- 0.3.0: repeated picks ---------------------------------------------------------
+# --- repeated picks ---------------------------------------------------------
 
 
 def test_a_name_picked_several_times_resolves_to_one_instance_per_pick() -> None:
@@ -520,7 +520,7 @@ def test_repeated_picks_add_separate_terms_with_their_own_knobs(monkeypatch) -> 
     assert objective.score_costs(held) == {"hard": -6, "soft": -5}
 
 
-# --- 0.3.0: offset / clip --------------------------------------------------------
+# --- offset / clip --------------------------------------------------------
 
 
 def _engine_shift(value, offset, clip):
@@ -638,7 +638,7 @@ def test_score_costs_shape_each_evaluated_unit() -> None:
     assert objective.score_costs(costs) == {"hard": -2, "soft": -8}
 
 
-# --- 0.3.0: clip=False with an offset stays off the hard score ---------------------
+# --- clip=False with an offset stays off the hard score ---------------------
 
 HARD_REFUSAL = (
     "constraint {q}: clip=False with a non-zero offset cannot be hard, because hard 0 must mean no "

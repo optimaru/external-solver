@@ -342,7 +342,7 @@ def test_a_cpsat_optimum_rescored_by_the_engine_is_hard_feasible() -> None:
     assert all(raw[name]["costs"] == [0.0] for name in STRUCTURAL)
 
 
-# --- 0.3.0: repeated picks and offset / clip ---------------------------------------
+# --- repeated picks and offset / clip ---------------------------------------
 
 SELECTIONS = {
     "repeat": [MakespanCost(), MakespanCost(weight=2), CycleTimeCost(), CycleTimeCost()],
@@ -472,7 +472,7 @@ def test_structural_plugins_refuse_an_offset_and_check_every_instance() -> None:
         solve(_fab([]), time_limit_seconds=1, constraints=[MachineCapacityCost(), MachineCapacityCost(weight=2)])
 
 
-# --- 0.3.0: clip=False with an offset stays off the hard score -------------------------
+# --- clip=False with an offset stays off the hard score -------------------------
 
 HARD_REFUSAL = (
     "constraint {q}: clip=False with a non-zero offset cannot be hard, because hard 0 must mean no "

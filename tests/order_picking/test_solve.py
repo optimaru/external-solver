@@ -223,7 +223,7 @@ def test_promoting_the_split_scores_like_the_engine():
     assert engine.hard == -(1 + 2 * 2)
 
 
-# --- 0.3.0: repeated picks and offset / clip ---------------------------------------
+# --- repeated picks and offset / clip ---------------------------------------
 
 
 def _three_picks(timelimit: float = 5) -> OrderPickingRequest:
@@ -399,7 +399,7 @@ def test_medium_is_refused_like_the_engine(level):
             )
 
 
-# --- 0.3.0: clip=False with an offset stays off the hard score -------------------------
+# --- clip=False with an offset stays off the hard score -------------------------
 
 HARD_REFUSAL = (
     "constraint {q}: clip=False with a non-zero offset cannot be hard, because hard 0 must mean no "

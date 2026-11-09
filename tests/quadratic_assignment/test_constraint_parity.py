@@ -37,7 +37,7 @@ from optimaru.quadratic_assignment.models import QuadraticAssignmentProblemModel
 
 from external_solver.quadratic_assignment import build, catalog, solve
 
-# Every fact, non-negative data (the regime the 0.1.x CP-SAT model assumed).
+# Every fact, non-negative data (the regime the original CP-SAT model assumed).
 EVERYTHING = {
     "facilities": ["A", "B", "C", "D", "E"],
     "locations": ["v", "w", "x", "y", "z"],
@@ -68,7 +68,7 @@ SIGNED = {
     "location_capacities": {"k": 1, "m": 3},
 }
 
-# The 0.1.x side-constraint fixture.
+# The original side-constraint fixture.
 SIDE = {
     "facilities": ["F1", "F2"],
     "locations": ["L1", "L2"],
@@ -204,7 +204,7 @@ def test_raw_costs_match_by_hand():
 
 
 def test_repeated_forbidden_rows_count_once_in_both_solvers():
-    """The 0.1.x CP-SAT model summed over rows (twice for a repeated one); 0.2.0 counts a pair once."""
+    """An earlier CP-SAT model summed over rows (twice for a repeated one); now a pair counts once."""
     problem = {**SIDE, "forbidden_assignments": [{"facility": "F2", "location": "L2"}] * 3}
     assert _engine_raw(problem, ["F1", "F2"], "forbidden_assignments_cost") == 1
     assert _Pinned(problem, "forbidden_assignments_cost").raw(["F1", "F2"]) == 1
@@ -339,7 +339,7 @@ def test_selections_by_name_and_mapping_work():
         solve(Model.model_validate(SIDE), time_limit_seconds=1, constraints=["minimize_flow_distance"])
 
 
-# --- 0.3.0: repeated picks and offset / clip ---------------------------------------
+# --- repeated picks and offset / clip ---------------------------------------
 
 SELECTIONS = {
     "repeat": [
@@ -492,7 +492,7 @@ def test_an_offset_on_a_total_that_may_be_negative_is_refused(pick, data):
     assert (solved.score_hard, solved.score_soft) == pytest.approx(_brute_force(SIGNED, plain))
 
 
-# --- 0.3.0: clip=False with an offset stays off the hard score -------------------------
+# --- clip=False with an offset stays off the hard score -------------------------
 
 HARD_REFUSAL = (
     "constraint {q}: clip=False with a non-zero offset cannot be hard, because hard 0 must mean no "

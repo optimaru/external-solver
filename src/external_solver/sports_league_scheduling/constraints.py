@@ -3,7 +3,7 @@
 Each plugin subclasses the domain spec of the same name; its default level and
 weight come from the engine's ``sports_league.constraint_info()`` (the C++
 components' kDefaultLevel / kDefaultWeight), so they are not restated here.
-Before 0.2.0 the derby plugin restated only its level and so priced a workday
+An earlier derby plugin restated only its level and so priced a workday
 derby at weight 1 instead of the engine's 1000; reading the engine's catalog
 removes that mismatch.
 

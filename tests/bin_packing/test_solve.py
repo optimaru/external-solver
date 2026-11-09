@@ -189,7 +189,7 @@ def test_demoting_capacity_scores_like_the_engine() -> None:
     assert solved.score_hard == 0
 
 
-# --- 0.3.0: repeated picks and offset / clip ---------------------------------------
+# --- repeated picks and offset / clip ---------------------------------------
 
 SELECTIONS = {
     "repeat": [BinCapacityCost(), BinCapacityCost(weight=3, offset=1), UsedBinsCost()],
@@ -267,7 +267,7 @@ def test_medium_is_refused_like_the_engine(level) -> None:
             domain.calculate_score(_parity_problem().to_core(), selection)
 
 
-# --- 0.3.0: clip=False with an offset stays off the hard score -------------------------
+# --- clip=False with an offset stays off the hard score -------------------------
 
 HARD_REFUSAL = (
     "constraint {q}: clip=False with a non-zero offset cannot be hard, because hard 0 must mean no "

@@ -142,7 +142,7 @@ def test_quad_raw_costs_match_by_hand():
         assert _engine_raw(QUAD, (0, 1, 1, 0), name) == value
 
 
-# --- 0.3.0: repeated picks and offset / clip ---------------------------------------
+# --- repeated picks and offset / clip ---------------------------------------
 
 SELECTIONS = {
     "repeat": [BinCapacityCost(), BinCapacityCost(weight=3, offset=1), UsedBinsCost()],

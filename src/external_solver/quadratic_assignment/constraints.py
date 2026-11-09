@@ -105,7 +105,7 @@ class ForbiddenAssignmentsCost(domain.ForbiddenAssignmentsCost, ConstraintPlugin
     """Per location named by a forbidden row, x[f, l] over its DISTINCT forbidden facilities:
     a row listed twice counts once, as in the engine.
 
-    (Before 0.2.0 this summed over the rows, so a repeated row counted twice here
+    (An earlier version summed over the rows, so a repeated row counted twice here
     and once in the metaheuristic scorer.)"""
 
     terms_per_unit = True

@@ -93,7 +93,7 @@ WEB_DEMO = {
     ],
 }
 
-# The 0.1.x triangle (nothing but the cut).
+# The original triangle (nothing but the cut).
 TRIANGLE = {
     "vertices": ["A", "B", "C"],
     "edges": [
@@ -322,7 +322,7 @@ def test_selections_by_name_and_mapping_work():
         solve(Model.model_validate(TRIANGLE), time_limit_seconds=1, constraints=["maximize_cut_weight"])
 
 
-# --- 0.3.0: repeated picks and offset / clip ---------------------------------------
+# --- repeated picks and offset / clip ---------------------------------------
 
 SELECTIONS = {
     "repeat": [SamePartitionPairsCost(), SamePartitionPairsCost(weight=2), CutWeightCost(), CutWeightCost(weight=3)],
@@ -451,7 +451,7 @@ def test_a_fractional_offset_is_refused_by_cpsat():
         solve(Model.model_validate(TRIANGLE), time_limit_seconds=1, constraints=[CutWeightCost(offset=0.5)])
 
 
-# --- 0.3.0: clip=False with an offset stays off the hard score -------------------------
+# --- clip=False with an offset stays off the hard score -------------------------
 
 HARD_REFUSAL = (
     "constraint {q}: clip=False with a non-zero offset cannot be hard, because hard 0 must mean no "

@@ -291,7 +291,7 @@ def test_promoting_the_medium_constraint_scores_like_the_engine() -> None:
     assert _engine_score(solved, selection) == (solved.score_hard, solved.score_soft)
 
 
-# --- 0.3.0: repeated picks and offset / clip ---------------------------------------
+# --- repeated picks and offset / clip ---------------------------------------
 
 
 def _tiny_problem() -> BedPlanModel:
@@ -477,7 +477,7 @@ def test_a_fractional_offset_is_refused_by_cpsat() -> None:
         )
 
 
-# --- 0.3.0: clip=False with an offset stays off the hard score -------------------------
+# --- clip=False with an offset stays off the hard score -------------------------
 
 HARD_REFUSAL = (
     "constraint {q}: clip=False with a non-zero offset cannot be hard, because hard 0 must mean no "

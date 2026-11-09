@@ -375,7 +375,7 @@ def test_what_cannot_be_modelled_is_refused() -> None:
         solve(pinned)
 
 
-# --- 0.3.0: repeated picks and offset / clip ---------------------------------------
+# --- repeated picks and offset / clip ---------------------------------------
 
 # The plugins that add one term per engine unit (an employee, or the total of
 # unassigned_shifts_cost), so they take offsets; at values that bind on `_problem`.
@@ -590,7 +590,7 @@ def test_an_offset_cpsat_cannot_shape_is_refused() -> None:
     }
 
 
-# --- 0.3.0: clip=False with an offset stays off the hard score -------------------------
+# --- clip=False with an offset stays off the hard score -------------------------
 
 HARD_REFUSAL = (
     "constraint {q}: clip=False with a non-zero offset cannot be hard, because hard 0 must mean no "

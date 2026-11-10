@@ -233,9 +233,8 @@ def test_the_default_set_matches_brute_force_in_both_solvers(instance):
     optimum = _brute_force(problem, get_constraints())
     solved = solve(Model.model_validate(problem), time_limit_seconds=20)
     assert (solved.score_hard, solved.score_soft) == pytest.approx(optimum)
-    engine = Model.model_validate(problem)
-    result = engine_solve(engine, time_limit_seconds=1.0, random_seed=1)
-    assert (result.hard, result.soft) == pytest.approx(optimum)
+    engine = engine_solve(Model.model_validate(problem), time_limit_seconds=1.0, random_seed=1)
+    assert (engine.score_hard, engine.score_soft) == pytest.approx(optimum)
 
 
 # --- The catalog and the knobs ---------------------------------------------------

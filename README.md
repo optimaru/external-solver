@@ -9,13 +9,13 @@ compared score for score.
 It is released on GitHub, not on PyPI. Install a release tag:
 
 ```sh
-pip install "external-solver @ git+https://github.com/optimaru/external-solver@v0.2.0"
+pip install "external-solver @ git+https://github.com/optimaru/external-solver@v0.2.1"
 ```
 
 or, as a dependency in `pyproject.toml`:
 
 ```toml
-dependencies = ["external-solver @ git+https://github.com/optimaru/external-solver@v0.2.0"]
+dependencies = ["external-solver @ git+https://github.com/optimaru/external-solver@v0.2.1"]
 ```
 
 ```python

@@ -12,8 +12,8 @@ by construction: a request rides one vehicle or none, pickup first. Their
 plugins add no objective term (the raw cost is 0 in every CP-SAT solution) and
 refuse what the model cannot honour: a level other than hard or a weight other
 than the engine default. ``enclosing_circle_radius_cost``, ``squared_order_age_cost``,
-``pinned_stops_cost`` and ``required_vehicle_cost`` have no CP-SAT plugin
-(engine-only; selecting them here is an unknown-constraint error).
+``pinned_stops_cost``, ``required_vehicle_cost`` and ``request_group_cost`` have no
+CP-SAT plugin (engine-only; selecting them here is an unknown-constraint error).
 
 Every plugin adds one term per engine unit (``terms_per_unit``): one per vehicle,
 idle ones included (a constant 0 where a vehicle's limit is unset), never for the
@@ -280,7 +280,7 @@ class VehicleFixedCost(domain.VehicleFixedCost, ConstraintPlugin[PdpContext]):
             objective.add(self.name, cost * context.vehicle_used[vehicle], bound=cost)
 
 
-# list_constraints() order, without the four engine-only constraints.
+# list_constraints() order, without the five engine-only constraints.
 REGISTRY = ConstraintRegistry(
     [
         VehicleCapacityCost(),

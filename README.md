@@ -9,13 +9,13 @@ compared score for score.
 It is released on GitHub, not on PyPI. Install a release tag:
 
 ```sh
-pip install "external-solver @ git+https://github.com/optimaru/external-solver@v0.2.1"
+pip install "external-solver @ git+https://github.com/optimaru/external-solver@v0.2.2"
 ```
 
 or, as a dependency in `pyproject.toml`:
 
 ```toml
-dependencies = ["external-solver @ git+https://github.com/optimaru/external-solver@v0.2.1"]
+dependencies = ["external-solver @ git+https://github.com/optimaru/external-solver@v0.2.2"]
 ```
 
 ```python
@@ -53,6 +53,17 @@ a list replaces them. CP-SAT accepts only `exponent=1`, integral weights and
 integral offsets, and some constraints are structural in a CP-SAT model, so
 moving them to `level="soft"` is refused. Levels are optimized
 lexicographically, hard first.
+
+## Time limit
+
+`time_limit_seconds` is CP-SAT's limit on the search; building the model comes
+on top of it. When the score levels of a model do not fit one 64-bit objective
+(that depends on the instance), they are minimized one after another, hard
+first, and each level gets an equal share of the time that is left. A first
+level that has no solution when its share ends keeps searching and stops at the
+first solution it finds, so a solve ends without a solution only when the whole
+limit passed without one. A later level that finds nothing in its share returns
+the solution of the level before it.
 
 ## When there is no solution
 

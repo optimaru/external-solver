@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import numbers
+import threading
 import time
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -11,6 +12,47 @@ from ortools.sat.python import cp_model
 
 # Folded objective coefficients must stay inside int64 with headroom.
 _FOLD_LIMIT = 2**62
+
+
+class _FirstSolution(cp_model.CpSolverSolutionCallback):
+    """Notes that the search has a solution, and stops it at one found after ``share_ends``."""
+
+    def __init__(self, share_ends: float) -> None:
+        super().__init__()
+        self.found = False
+        self._share_ends = share_ends
+
+    def on_solution_callback(self) -> None:
+        # Set before the clock is read: the timer in `_solve_until_solved`
+        # reads this flag once the share has ended, so between the two of them
+        # a solution on either side of that moment stops the search.
+        self.found = True
+        if time.monotonic() >= self._share_ends:
+            self.stop_search()
+
+
+def _solve_until_solved(solver: cp_model.CpSolver, model: cp_model.CpModel, share: float) -> int:
+    """Solve for ``share`` seconds, or for as long as it takes to have a solution.
+
+    The solver's own time limit still ends the search. With a solution in hand
+    when ``share`` ends, the search stops there; without one it runs on and
+    stops at the first solution it finds.
+    """
+    watcher = _FirstSolution(time.monotonic() + share)
+
+    def share_ended() -> None:
+        if watcher.found:
+            solver.stop_search()
+
+    timer = threading.Timer(share, share_ended)
+    timer.daemon = True
+    timer.start()
+    try:
+        return solver.solve(model, watcher)
+    finally:
+        # Joined, so a timer that fires late cannot stop the solve that comes next.
+        timer.cancel()
+        timer.join()
 
 
 def _round_half_away(value: float) -> int:
@@ -554,6 +596,12 @@ class ObjectiveBuilder:
         are optimized one after another: each stage minimizes one level, then
         that level is capped at the value reached and the incumbent is hinted
         to the next stage. Every stage gets an equal share of the time left.
+
+        The first stage has no incumbent to fall back on. When its share ends
+        without a solution it keeps the time that is left and stops at the
+        first solution it finds, so the result is "no solution" only when the
+        whole limit passed without one. A later stage that finds nothing in
+        its share leaves the incumbent of the stage before it in the solver.
         """
         if self.folds():
             self.minimize()
@@ -562,31 +610,53 @@ class ObjectiveBuilder:
         deadline = time.monotonic() + budget
         stages = [level for level in self.levels if any(not _is_constant(term) for term in self.terms[level])]
         solved = optimal = False
-        for index, level in enumerate(stages):
-            left = max(deadline - time.monotonic(), 0.01)
-            solver.parameters.max_time_in_seconds = left / (len(stages) - index)
-            total = sum(self.terms[level])
-            self.model.minimize(total)
-            status = solver.solve(self.model)
-            if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-                if not solved:
+        try:
+            for index, level in enumerate(stages):
+                left = deadline - time.monotonic()
+                if solved and left <= 0:
+                    # Nothing left for this level. The solver still holds the
+                    # incumbent of the level before, which is the result.
+                    optimal = False
+                    break
+                left = max(left, 0.01)
+                share = left / (len(stages) - index)
+                total = sum(self.terms[level])
+                self.model.minimize(total)
+                if solved or share >= left:
+                    solver.parameters.max_time_in_seconds = share
+                    status = solver.solve(self.model)
+                else:
+                    solver.parameters.max_time_in_seconds = left
+                    status = _solve_until_solved(solver, self.model, share)
+                if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                    if not solved:
+                        return status
+                    # Out of time on a later level, and the failed solve took
+                    # the incumbent out of the solver. Put it back: with every
+                    # variable fixed to its hint this is propagation only, so
+                    # it gets the whole limit and not what the level left over
+                    # (a sliver of time is not enough to load a large model).
                     solver.parameters.max_time_in_seconds = budget
-                    return status
-                # Out of time on a later level: restore the last incumbent so
-                # the caller can still read it from the solver.
-                solver.parameters.fix_variables_to_their_hinted_value = True
-                solver.solve(self.model)
-                solver.parameters.fix_variables_to_their_hinted_value = False
-                optimal = False
-                break
-            optimal = (optimal or not solved) and status == cp_model.OPTIMAL
-            solved = True
-            self.model.add(total <= int(solver.objective_value))
-            self.model.clear_hints()
-            for var_index in range(len(self.model.proto.variables)):
-                var = self.model.get_int_var_from_proto_index(var_index)
-                self.model.add_hint(var, solver.value(var))
-        solver.parameters.max_time_in_seconds = budget
+                    solver.parameters.fix_variables_to_their_hinted_value = True
+                    try:
+                        restored = solver.solve(self.model)
+                    finally:
+                        solver.parameters.fix_variables_to_their_hinted_value = False
+                    if restored not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                        # No solution to read from the solver: say so, and do
+                        # not let the caller read values that are not there.
+                        return restored
+                    optimal = False
+                    break
+                optimal = (optimal or not solved) and status == cp_model.OPTIMAL
+                solved = True
+                self.model.add(total <= int(solver.objective_value))
+                self.model.clear_hints()
+                for var_index in range(len(self.model.proto.variables)):
+                    var = self.model.get_int_var_from_proto_index(var_index)
+                    self.model.add_hint(var, solver.value(var))
+        finally:
+            solver.parameters.max_time_in_seconds = budget
         return cp_model.OPTIMAL if optimal else cp_model.FEASIBLE
 
     def score(self, solver: cp_model.CpSolver) -> dict[str, int]:

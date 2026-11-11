@@ -57,7 +57,7 @@ def test_cpsat_defaults_are_the_engine_defaults() -> None:
 
 
 def test_exact_solver_matches_hand_calculated_optimum() -> None:
-    solved = solve(problem(), time_limit_seconds=2, num_workers=1)
+    solved = solve(problem(), time_limit_seconds=2, parallel_solver_count=1)
     assert solved.score_hard == 0
     assert solved.score_soft == -2
     assert solved.bins_used == 2
@@ -82,7 +82,7 @@ def test_exact_solver_proves_nontrivial_eight_bin_sample() -> None:
         bin_capacity=100,
         items=[ItemModel(id=str(index), weight=weight) for index, weight in enumerate(weights)],
     )
-    solved = solve(candidate, time_limit_seconds=5, num_workers=1)
+    solved = solve(candidate, time_limit_seconds=5, parallel_solver_count=1)
     assert solved.score_hard == 0
     assert solved.bins_used == 8
 

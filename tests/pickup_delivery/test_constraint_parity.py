@@ -126,7 +126,7 @@ def _request(vehicle_fields, demand, case_fields, *, two_vehicles=False) -> PdpR
         )
     max_end_times = case_fields.get("max_end_times", (10_000, 10_000))
     return PdpRequest(
-        timelimit=1,
+        time_limit_seconds=1,
         model_input=PdpInput(
             vehicles=vehicles,
             deliveries=[

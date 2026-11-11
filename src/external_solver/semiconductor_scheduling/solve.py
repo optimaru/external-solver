@@ -16,6 +16,7 @@ from optimaru.semiconductor_scheduling.constraints import Constraint
 from optimaru.semiconductor_scheduling.models import AssignmentModel, SemiconductorScheduleModel
 from ortools.sat.python import cp_model
 
+from external_solver._keywords import reads_num_workers
 from external_solver._plugins import ConstraintConfig
 from external_solver.errors import NoSolutionError
 
@@ -46,12 +47,13 @@ def _horizon(problem: SemiconductorScheduleModel, total_duration: int, fixed) ->
     return max(1, latest + total_duration + total_downtime + total_setup + total_transport + total_queue)
 
 
+@reads_num_workers
 def solve(
     problem: SemiconductorScheduleModel,
     *,
     time_limit_seconds: float = 30.0,
     random_seed: int = 0,
-    num_workers: int = 1,
+    parallel_solver_count: int = 1,
     constraints: Iterable[ConstraintConfig | Constraint | str | Mapping] | None = None,
     _fixed_assignments: list[AssignmentModel | Mapping] | None = None,
     _proxy_score: dict[str, int] | None = None,
@@ -142,7 +144,7 @@ def solve(
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = time_limit_seconds
     solver.parameters.random_seed = random_seed
-    solver.parameters.num_search_workers = max(1, num_workers)
+    solver.parameters.num_search_workers = max(1, parallel_solver_count)
     status = objective.solve(solver)
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         raise NoSolutionError(solver.status_name(status))

@@ -6,9 +6,9 @@ C++ components' kDefaultLevel / kDefaultWeight — e.g. after_ideal_end_date_cos
 soft 1'000'000 and tag_conflict_cost soft 1'000), so they are not restated here.
 The registry lists the plugins in ``list_constraints()`` order.
 
-Every plugin adds one term per engine unit: the four date rules one per
+Every plugin adds one term per engine unit: the four date constraints one per
 (crew, start date) cell, every cell included (an empty one is the constant 0),
-the two global conflict rules one for their total. So a pick's ``offset`` /
+the two global conflict constraints one for their total. So a pick's ``offset`` /
 ``clip`` shape each cell (or the total) exactly as the engine does
 (``terms_per_unit``), and a constraint picked several times adds one set of
 terms per pick.

@@ -115,8 +115,8 @@ class ConstraintPlugin(ABC, Generic[ContextT]):
                     f"{cls.__name__}.{attr} restates an engine default; "
                     f"{name!r} takes it from the domain's constraint_info()"
                 )
-        # A plugin per instance of a repeated rule is named "<name>#<k>"
-        # (the constraint_costs() key rule); its row is the plain name's.
+        # A plugin per instance of a repeated constraint is named "<name>#<k>"
+        # (the keys of constraint_costs()); its row is the plain name's.
         row = catalog.get(name.partition("#")[0])
         if row is None:
             raise TypeError(f"{cls.__name__}: {name!r} is not in the domain's constraint_info()")

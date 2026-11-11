@@ -7,6 +7,7 @@ from optimaru.sports_league_scheduling.constraints import Constraint
 from optimaru.sports_league_scheduling.models import LeagueScheduleModel
 from ortools.sat.python import cp_model
 
+from external_solver._keywords import reads_num_workers
 from external_solver._plugins import ConstraintConfig
 from external_solver.errors import NoSolutionError
 
@@ -19,12 +20,13 @@ def catalog() -> list[dict]:
     return REGISTRY.catalog()
 
 
+@reads_num_workers
 def solve(
     problem: LeagueScheduleModel,
     *,
     time_limit_seconds: float = 30.0,
     random_seed: int = 0,
-    num_workers: int = 1,
+    parallel_solver_count: int = 1,
     constraints: list[ConstraintConfig | Constraint | str | dict] | None = None,
     _fixed_rounds: list[int] | None = None,
     _proxy_score: dict[str, int] | None = None,
@@ -67,7 +69,7 @@ def solve(
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = time_limit_seconds
     solver.parameters.random_seed = random_seed
-    solver.parameters.num_search_workers = max(1, num_workers)
+    solver.parameters.num_search_workers = max(1, parallel_solver_count)
     status = objective.solve(solver)
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         raise NoSolutionError(solver.status_name(status))

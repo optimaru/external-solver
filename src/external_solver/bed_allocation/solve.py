@@ -9,6 +9,7 @@ from optimaru.bed_allocation.constraints import Constraint
 from optimaru.bed_allocation.models import BedPlanModel
 from ortools.sat.python import cp_model
 
+from external_solver._keywords import reads_num_workers
 from external_solver._plugins import ConstraintConfig, ObjectiveBuilder
 from external_solver.errors import NoSolutionError
 
@@ -58,12 +59,13 @@ def build_model(
     return model, x, objective
 
 
+@reads_num_workers
 def solve(
     problem: BedPlanModel,
     *,
     time_limit_seconds: float = 30.0,
     random_seed: int = 0,
-    num_workers: int = 1,
+    parallel_solver_count: int = 1,
     constraints: Iterable[ConstraintConfig | Constraint | str | Mapping] | None = None,
     _fixed_beds: list[int] | None = None,
     _proxy_score: dict[str, int] | None = None,
@@ -75,7 +77,7 @@ def solve(
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = time_limit_seconds
     solver.parameters.random_seed = random_seed
-    solver.parameters.num_search_workers = max(1, num_workers)
+    solver.parameters.num_search_workers = max(1, parallel_solver_count)
     status = objective.solve(solver)
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         raise NoSolutionError(solver.status_name(status))

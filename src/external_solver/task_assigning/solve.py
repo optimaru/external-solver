@@ -7,6 +7,7 @@ from optimaru.task_assigning.constraints import Constraint
 from optimaru.task_assigning.models import TaskAssigningSolutionModel
 from ortools.sat.python import cp_model
 
+from external_solver._keywords import reads_num_workers
 from external_solver._plugins import ConstraintConfig
 from external_solver.errors import NoSolutionError
 
@@ -48,12 +49,13 @@ def _split_soft(soft: int) -> tuple[int, int]:
     return sign * (magnitude // SOFT1_UNIT), sign * (magnitude % SOFT1_UNIT)
 
 
+@reads_num_workers
 def solve(
     problem: TaskAssigningSolutionModel,
     *,
     time_limit_seconds: float = 30.0,
     random_seed: int = 0,
-    num_workers: int = 1,
+    parallel_solver_count: int = 1,
     constraints: list[ConstraintConfig | Constraint | str | dict] | None = None,
     _fixed_employee_by_task: list[int] | None = None,
     _fixed_starts: list[int] | None = None,
@@ -144,7 +146,7 @@ def solve(
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = time_limit_seconds
     solver.parameters.random_seed = random_seed
-    solver.parameters.num_search_workers = max(1, num_workers)
+    solver.parameters.num_search_workers = max(1, parallel_solver_count)
     status = objective.solve(solver)
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         raise NoSolutionError(solver.status_name(status))

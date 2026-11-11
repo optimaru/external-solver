@@ -209,9 +209,9 @@ def solve_request(
     )
 
     solver = cp_model.CpSolver()
-    solver.parameters.max_time_in_seconds = request.timelimit
+    solver.parameters.max_time_in_seconds = request.time_limit_seconds
     solver.parameters.random_seed = request.random_seed
-    solver.parameters.num_search_workers = request.num_workers
+    solver.parameters.num_search_workers = request.parallel_solver_count
     status = objective.solve(solver)
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         raise NoSolutionError(solver.status_name(status))

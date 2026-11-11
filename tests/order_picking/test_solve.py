@@ -29,7 +29,7 @@ from ortools.sat.python import cp_model
 def test_smoke_and_constraint_selection():
     origin = LocationModel(column="A", shelving_row=1, side="LEFT", row=0)
     request = OrderPickingRequest(
-        timelimit=2,
+        time_limit_seconds=2,
         trolleys=[
             TrolleyModel(id="T1", bucket_count=2, bucket_capacity=100, location=origin)
         ],
@@ -52,7 +52,7 @@ def test_default_score_matches_the_engine_on_the_same_nonzero_route():
     origin = LocationModel(column="A", shelving_row=1, side="LEFT", row=0)
     pick = LocationModel(column="B", shelving_row=2, side="RIGHT", row=4)
     request = OrderPickingRequest(
-        timelimit=2,
+        time_limit_seconds=2,
         trolleys=[
             TrolleyModel(id="T1", bucket_count=2, bucket_capacity=100, location=origin)
         ],
@@ -80,7 +80,7 @@ def test_each_cpsat_constraint_matches_shared_raw_cost(constraint):
         LocationModel(column="D", shelving_row=3, side="RIGHT", row=1),
     ]
     request = OrderPickingRequest(
-        timelimit=2,
+        time_limit_seconds=2,
         trolleys=[
             TrolleyModel(id="T1", bucket_count=1, bucket_capacity=50, location=origin),
             TrolleyModel(id="T2", bucket_count=1, bucket_capacity=50, location=origin),
@@ -144,7 +144,7 @@ def _short_on_buckets_request():
     """One trolley with one bucket of 50 for two orders of 40: always 1 bucket short."""
     origin = LocationModel(column="A", shelving_row=1, side="LEFT", row=0)
     return OrderPickingRequest(
-        timelimit=2,
+        time_limit_seconds=2,
         trolleys=[
             TrolleyModel(id="T1", bucket_count=1, bucket_capacity=50, location=origin)
         ],
@@ -226,7 +226,7 @@ def test_promoting_the_split_scores_like_the_engine():
 # --- repeated picks and offset / clip ---------------------------------------
 
 
-def _three_picks(timelimit: float = 5) -> OrderPickingRequest:
+def _three_picks(time_limit_seconds: float = 5) -> OrderPickingRequest:
     """Two trolleys (one bucket of 50 each) and three picks: O1 (40 + 40, two buckets) and
     O2 (40). Every assignment of the picks with every picking order: 24 solutions."""
     origin = LocationModel(column="A", shelving_row=1, side="LEFT", row=0)
@@ -236,7 +236,7 @@ def _three_picks(timelimit: float = 5) -> OrderPickingRequest:
         LocationModel(column="D", shelving_row=3, side="RIGHT", row=1),
     ]
     return OrderPickingRequest(
-        timelimit=timelimit,
+        time_limit_seconds=time_limit_seconds,
         trolleys=[
             TrolleyModel(id=name, bucket_count=1, bucket_capacity=50, location=origin)
             for name in ("T1", "T2")
@@ -377,7 +377,7 @@ def test_mapping_selections_repeat_and_shift_like_specs():
 def test_a_fractional_offset_is_refused_by_cpsat():
     with pytest.raises(ValueError, match="offset must be an integer for CP-SAT"):
         solve(
-            _three_picks(timelimit=1), constraints=[OrderSplitByTrolleyCost(offset=0.5)]
+            _three_picks(time_limit_seconds=1), constraints=[OrderSplitByTrolleyCost(offset=0.5)]
         )
 
 
@@ -392,7 +392,7 @@ def test_medium_is_refused_like_the_engine(level):
         [OrderSplitByTrolleyCost(), OrderSplitByTrolleyCost(level=level)],
     ):
         with pytest.raises(ValueError, match=message):
-            solve(_three_picks(timelimit=1), constraints=selection)
+            solve(_three_picks(time_limit_seconds=1), constraints=selection)
         with pytest.raises(ValueError, match=message):
             domain.solve(
                 to_solution(_three_picks()), time_limit_seconds=0, constraints=selection
@@ -437,7 +437,7 @@ def test_the_literal_offset_is_refused_on_hard_like_the_engine(selection, offset
     message = HARD_REFUSAL.format(q=repr(name))
     for picks in ([pick], [TrolleyCapacityCost(), OrderSplitByTrolleyCost(), pick]):
         with pytest.raises(ValueError) as refused:
-            solve(_three_picks(timelimit=1), constraints=picks)
+            solve(_three_picks(time_limit_seconds=1), constraints=picks)
         assert str(refused.value) == message
         with pytest.raises(ValueError) as refused:
             REGISTRY.objective(cp_model.CpModel(), ("hard", "soft"), picks)

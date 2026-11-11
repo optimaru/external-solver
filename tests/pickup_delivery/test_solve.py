@@ -104,7 +104,7 @@ def test_cpsat_defaults_are_the_engine_defaults() -> None:
 
 def test_pickup_precedes_dropoff() -> None:
     request = PdpRequest(
-        timelimit=2,
+        time_limit_seconds=2,
         model_input=PdpInput(
             vehicles=[VehicleModel(id="v", capacity=2, home=(37.0, 127.0))],
             deliveries=[
@@ -128,7 +128,7 @@ def test_pickup_precedes_dropoff() -> None:
     assert [stop.pickup for stop in solved.routes["v"]] == [True, False]
 
     meta = solve_metaheuristic_request(
-        request.model_copy(update={"timelimit": 0.1}),
+        request.model_copy(update={"time_limit_seconds": 0.1}),
         constraints=[vehicle_capacity_cost],
     )
     assert set(meta.routes) == {"v"}
@@ -137,7 +137,7 @@ def test_pickup_precedes_dropoff() -> None:
 
 def test_max_stops_can_leave_a_delivery_unassigned() -> None:
     request = PdpRequest(
-        timelimit=2,
+        time_limit_seconds=2,
         model_input=PdpInput(
             vehicles=[
                 VehicleModel(id="v", capacity=10, home=(37.0, 127.0), max_stops=2)
@@ -169,9 +169,9 @@ def test_max_stops_can_leave_a_delivery_unassigned() -> None:
     assert len(solved.unassigned) == 1
 
 
-def _two_requests(timelimit: float = 5) -> PdpRequest:
+def _two_requests(time_limit_seconds: float = 5) -> PdpRequest:
     return PdpRequest(
-        timelimit=timelimit,
+        time_limit_seconds=time_limit_seconds,
         model_input=PdpInput(
             vehicles=[VehicleModel(id="v", capacity=10, home=(37.0, 127.0))],
             deliveries=[
@@ -271,7 +271,7 @@ def test_structural_constraints_refuse_what_the_model_cannot_honour(
 ) -> None:
     """The circuit model enforces the coupling rules; it cannot price a violation."""
     with pytest.raises(ValueError, match="enforces it structurally"):
-        solve_request(_two_requests(timelimit=1), constraints=[spec_class(**knobs)])
+        solve_request(_two_requests(time_limit_seconds=1), constraints=[spec_class(**knobs)])
 
 
 @pytest.mark.parametrize(
@@ -279,7 +279,7 @@ def test_structural_constraints_refuse_what_the_model_cannot_honour(
 )
 def test_structural_constraints_accept_their_engine_default(spec_class) -> None:
     for pick in (spec_class(), spec_class(level="hard"), spec_class(weight=1000)):
-        solved = solve_request(_two_requests(timelimit=1), constraints=[pick])
+        solved = solve_request(_two_requests(time_limit_seconds=1), constraints=[pick])
         assert _levels(solved.score)["hard"] == 0
 
 
@@ -289,12 +289,12 @@ def test_structural_constraints_accept_their_engine_default(spec_class) -> None:
 LINE = {"V1": 0, "V2": 0, "P0": 100, "D0": 300, "P1": 200, "D1": 500}
 
 
-def _line_request(timelimit: float = 5) -> PdpRequest:
+def _line_request(time_limit_seconds: float = 5) -> PdpRequest:
     """Two vehicles (V1 carries 3), two requests: r0 (demand 4, its dropoff due at 250 s)
     and r1 (demand 2, 300 s of service each, 10 penalty minutes when left out)."""
     order = list(LINE)
     return PdpRequest(
-        timelimit=timelimit,
+        time_limit_seconds=time_limit_seconds,
         model_input=PdpInput(
             vehicles=[
                 VehicleModel(id="V1", capacity=3, home=(37.0, 127.0)),
@@ -430,7 +430,7 @@ def test_the_cpsat_terms_equal_the_engine_on_every_solution(selection) -> None:
     """Pin each of the 19 solutions: the CP-SAT objective's levels are the engine's score
     of those routes under the same repeated / shifted picks (its own and the score()
     mirror's), exactly."""
-    request = _line_request(timelimit=5)
+    request = _line_request(time_limit_seconds=5)
     for routes in _route_sets():
         solved = solve_request(request, constraints=selection, _fixed_routes=routes)
         levels = _levels(solved.score)
@@ -478,7 +478,7 @@ def test_mapping_selections_repeat_and_shift_like_specs() -> None:
 def test_a_fractional_offset_is_refused_by_cpsat() -> None:
     with pytest.raises(ValueError, match="offset must be an integer for CP-SAT"):
         solve_request(
-            _line_request(timelimit=1), constraints=[TravelTimeCost(offset=0.5)]
+            _line_request(time_limit_seconds=1), constraints=[TravelTimeCost(offset=0.5)]
         )
 
 
@@ -487,11 +487,11 @@ def test_a_repeated_structural_pick_refuses_per_instance() -> None:
     level="soft" is refused even though the first one is the default."""
     with pytest.raises(ValueError, match="enforces it structurally"):
         solve_request(
-            _two_requests(timelimit=1),
+            _two_requests(time_limit_seconds=1),
             constraints=[PairedRequestCost(), PairedRequestCost(level="soft")],
         )
     solved = solve_request(
-        _two_requests(timelimit=1),
+        _two_requests(time_limit_seconds=1),
         constraints=[PairedRequestCost(), PairedRequestCost()],
     )
     assert _levels(solved.score)["hard"] == 0
@@ -543,7 +543,7 @@ def test_the_literal_offset_is_refused_on_hard_like_the_engine(
     message = HARD_REFUSAL.format(q=repr(name))
     for picks in ([pick], [VehicleCapacityCost(), UnassignedRequestsCost(), pick]):
         with pytest.raises(ValueError) as refused:
-            solve_request(_line_request(timelimit=1), constraints=picks)
+            solve_request(_line_request(time_limit_seconds=1), constraints=picks)
         assert str(refused.value) == message
         with pytest.raises(ValueError) as refused:
             REGISTRY.objective(cp_model.CpModel(), ("hard", "medium", "soft"), picks)
@@ -558,7 +558,7 @@ def test_the_literal_offset_is_refused_on_hard_like_the_engine(
             score(domain.constraint_costs(plan), [pick])
         assert str(refused.value) == message
         with pytest.raises(ValueError) as refused:
-            solve_metaheuristic_request(_line_request(timelimit=1), constraints=[pick])
+            solve_metaheuristic_request(_line_request(time_limit_seconds=1), constraints=[pick])
         assert str(refused.value) == message
 
 

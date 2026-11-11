@@ -7,6 +7,7 @@ from optimaru.tournament_scheduling.constraints import Constraint
 from optimaru.tournament_scheduling.models import TournamentScheduleModel
 from ortools.sat.python import cp_model
 
+from external_solver._keywords import reads_num_workers
 from external_solver._plugins import ConstraintConfig, ObjectiveBuilder
 from external_solver.errors import NoSolutionError
 
@@ -67,12 +68,13 @@ def build_model(
     return model, objective, x
 
 
+@reads_num_workers
 def solve(
     problem: TournamentScheduleModel,
     *,
     time_limit_seconds: float = 30.0,
     random_seed: int = 0,
-    num_workers: int = 1,
+    parallel_solver_count: int = 1,
     constraints: list[ConstraintConfig | Constraint | str | dict] | None = None,
 ) -> TournamentScheduleModel:
     """Optimize hard constraints, team load, then confrontation balance.
@@ -87,7 +89,7 @@ def solve(
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = time_limit_seconds
     solver.parameters.random_seed = random_seed
-    solver.parameters.num_search_workers = max(1, num_workers)
+    solver.parameters.num_search_workers = max(1, parallel_solver_count)
     status = objective.solve(solver)
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         raise NoSolutionError(solver.status_name(status))

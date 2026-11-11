@@ -1,3 +1,4 @@
+import importlib
 import random
 import typing
 from collections import Counter
@@ -22,9 +23,9 @@ from external_solver.employee_scheduling.solve import selection
 
 DAY = 24 * 60
 
-# Every rule type, at values that make it bind on `_problem`. Several rule types
+# Every constraint type, at values that make it bind on `_problem`. Several constraint types
 # appear more than once where a parameter switches to another code path.
-RULES = [
+CONSTRAINTS = [
     domain.RequiredSkillCost(),
     # A second instance: a scoped, demoted copy.
     domain.RequiredSkillCost(weight=3, level="soft", worker_indices=(0, 1)),
@@ -98,7 +99,7 @@ RULES = [
 ]
 
 
-def _problem(rules: list, seed: int = 3) -> ScheduleRequest:
+def _problem(constraints: list, seed: int = 3) -> ScheduleRequest:
     """Ten days of mixed shifts, among them overlaps and midnight crossings."""
     rng = random.Random(seed)
     workers = [
@@ -126,12 +127,12 @@ def _problem(rules: list, seed: int = 3) -> ScheduleRequest:
             )
         )
     return ScheduleRequest(
-        model_input=SchedulingInput(workers=workers, shifts=shifts, rules=rules)
+        model_input=SchedulingInput(workers=workers, shifts=shifts, constraints=constraints)
     )
 
 
 def _stacked_roster(problem: ScheduleRequest, seed: int) -> list[int | None]:
-    """Few workers and some gaps, so rules about doubled or long runs of work bind."""
+    """Few workers and some gaps, so constraints about doubled or long runs of work bind."""
     rng = random.Random(seed)
     return [
         None if rng.random() < 0.1 else rng.choice([0, 0, 1, 2])
@@ -161,15 +162,15 @@ def _model_cost(total: dict, fixed: list[int | None]) -> float:
 def _engine_cost(
     problem: ScheduleRequest, fixed: list[int | None]
 ) -> tuple[bool, float]:
-    """The one rule's weighted cost under `fixed`, in the model's terms."""
+    """The one constraint's weighted cost under `fixed`, in the model's terms."""
     [total] = constraint_costs(_with_workers(problem, fixed))["totals"]
     return total["is_hard"], _model_cost(total, fixed)
 
 
 @pytest.mark.parametrize("seed", range(4))
-@pytest.mark.parametrize("rule", RULES, ids=lambda item: repr(item)[:60])
-def test_each_rule_matches_the_engine_on_a_fixed_roster(rule, seed) -> None:
-    problem = _problem([rule], seed)
+@pytest.mark.parametrize("constraint", CONSTRAINTS, ids=lambda item: repr(item)[:60])
+def test_each_constraint_matches_the_engine_on_a_fixed_roster(constraint, seed) -> None:
+    problem = _problem([constraint], seed)
     fixed = _stacked_roster(problem, seed)
     is_hard, expected = _engine_cost(problem, fixed)
     proxy: dict[str, int] = {}
@@ -184,19 +185,19 @@ def test_each_rule_matches_the_engine_on_a_fixed_roster(rule, seed) -> None:
         assert -proxy["soft"] / SCALE == pytest.approx(expected, abs=2 / SCALE + 1e-9)
 
 
-def test_every_rule_type_has_a_plugin() -> None:
-    union = typing.get_args(typing.get_args(models.Rule)[0])
-    names = [rule.model_fields["name"].default for rule in union]
+def test_every_constraint_type_has_a_plugin() -> None:
+    union = typing.get_args(typing.get_args(models.ConstraintModel)[0])
+    names = [constraint.model_fields["name"].default for constraint in union]
 
     assert list(PLUGINS) == names == list(es_scheduling.CONSTRAINT_NAMES)
     for name, plugin in PLUGINS.items():
-        assert issubclass(plugin, models.rule_model(name).spec_class)
+        assert issubclass(plugin, models.constraint_model(name).spec_class)
     assert {entry["name"] for entry in catalog()} == set(names)
 
 
 def test_cpsat_defaults_are_the_engine_defaults() -> None:
     """The catalog equals constraint_info() row for row: the eight defaults first,
-    then the rule-only constraints (default_enabled False)."""
+    then the opt-in constraints (default_enabled False)."""
     engine = es_scheduling.constraint_info()
     entries = catalog()
     assert [entry["name"] for entry in entries] == [row.name for row in engine]
@@ -225,7 +226,7 @@ def test_plugins_restate_no_engine_default() -> None:
             assert not hasattr(plugin, attr), (plugin, attr)
 
 
-def test_repeated_rules_get_numbered_plugins() -> None:
+def test_repeated_constraints_get_numbered_plugins() -> None:
     registry = registry_for(
         [
             domain.DayPatternCost(pattern="Location A,OFF,Location B"),
@@ -252,7 +253,7 @@ def test_a_reward_refuses_hard_on_the_cpsat_path_too() -> None:
         solve(_problem([domain.DesiredShiftCost(level="hard", worker_indices=(0,))]))
 
 
-def test_demoting_a_hard_rule_scores_like_the_engine() -> None:
+def test_demoting_a_hard_constraint_scores_like_the_engine() -> None:
     """level="soft" lands on soft in both solvers (cpsat-common's level_of)."""
     problem = _problem([domain.MaxConsecutiveDaysCost(value=1, level="soft")], seed=1)
     fixed = _stacked_roster(problem, 1)
@@ -264,8 +265,8 @@ def test_demoting_a_hard_rule_scores_like_the_engine() -> None:
 
 
 @pytest.mark.parametrize("seed", range(4))
-def test_every_rule_at_once_matches_the_engine_on_a_fixed_roster(seed) -> None:
-    problem = _problem(RULES, seed)
+def test_every_constraint_at_once_matches_the_engine_on_a_fixed_roster(seed) -> None:
+    problem = _problem(CONSTRAINTS, seed)
     fixed = _stacked_roster(problem, seed)
     expected = constraint_costs(_with_workers(problem, fixed))
     proxy: dict[str, int] = {}
@@ -278,7 +279,7 @@ def test_every_rule_at_once_matches_the_engine_on_a_fixed_roster(seed) -> None:
         for total in expected["totals"]
         if not total["is_hard"]
     )
-    # Two ssd rules and two weeks of gap round up to the grid.
+    # Two ssd constraints and two weeks of gap round up to the grid.
     assert -proxy["soft"] / SCALE == pytest.approx(soft, abs=5 / SCALE + 1e-9)
 
 
@@ -292,7 +293,7 @@ def test_mixed_sign_costs_do_not_outweigh_the_hard_level() -> None:
             shifts=[
                 ShiftModel(id="Shift 1", start=0, end=60, required_skill="Skill A")
             ],
-            rules=[
+            constraints=[
                 domain.RequiredSkillCost(),
                 domain.AssignmentCost(
                     shift_costs={
@@ -312,19 +313,19 @@ def test_mixed_sign_costs_do_not_outweigh_the_hard_level() -> None:
 def test_the_demo_solves_to_a_feasible_roster() -> None:
     request = generate_demo_data(workers=8, days=7)
 
-    solved = solve(request, time_limit_seconds=10, num_workers=4)
+    solved = solve(request, time_limit_seconds=10, parallel_solver_count=4)
 
     assert all(shift.worker for shift in solved.model_input.shifts)
     assert constraint_costs(solved)["hard"] == 0
 
 
-def test_a_shift_stays_empty_only_when_a_rule_prices_it() -> None:
+def test_a_shift_stays_empty_only_when_a_constraint_prices_it() -> None:
     worker = WorkerModel(id="Worker 1", unavailable_dates=[0])
     shift = ShiftModel(id="Shift 1", start=0, end=60)
 
-    def problem(rules: list) -> ScheduleRequest:
+    def problem(constraints: list) -> ScheduleRequest:
         return ScheduleRequest(
-            model_input=SchedulingInput(workers=[worker], shifts=[shift], rules=rules)
+            model_input=SchedulingInput(workers=[worker], shifts=[shift], constraints=constraints)
         )
 
     priced = solve(
@@ -345,7 +346,7 @@ def test_imbalance_does_not_buy_an_empty_shift_at_a_soft_price() -> None:
                 ShiftModel(id=f"Shift {day}", start=day * DAY, end=day * DAY + 60)
                 for day in range(3)
             ],
-            rules=[
+            constraints=[
                 domain.ShiftCountImbalanceCost(),
                 domain.UnassignedShiftsCost(level="soft"),
             ],
@@ -361,7 +362,7 @@ def test_imbalance_does_not_buy_an_empty_shift_at_a_soft_price() -> None:
 def test_what_cannot_be_modelled_is_refused() -> None:
     with pytest.raises(ValueError, match="exponent"):
         solve(_problem([domain.RequiredSkillCost(exponent=2.0)]))
-    # Refused even though no term of this rule would reach the objective.
+    # Refused even though no term of this constraint would reach the objective.
     with pytest.raises(ValueError, match="integer"):
         solve(_problem([domain.TargetDaysOffCost(weight=0.5)]))
     with pytest.raises(ValueError, match="fractional"):
@@ -380,7 +381,7 @@ def test_what_cannot_be_modelled_is_refused() -> None:
 # The plugins that add one term per engine unit (an employee, or the total of
 # unassigned_shifts_cost), so they take offsets; at values that bind on `_problem`.
 # The literal formula with an offset is refused on hard, so the literal picks of
-# the hard rules sit on soft.
+# the hard constraints sit on soft.
 SHIFTED = [
     domain.RequiredSkillCost(level="soft", offset=1, clip=False),
     domain.RequiredSkillCost(offset=1),
@@ -406,10 +407,10 @@ def _engine_scaled(problem: ScheduleRequest, fixed: list[int | None]) -> dict[st
 
 
 @pytest.mark.parametrize("seed", range(4))
-@pytest.mark.parametrize("rule", SHIFTED, ids=lambda item: repr(item)[:80])
-def test_a_shifted_rule_matches_the_engine_on_a_fixed_roster(rule, seed) -> None:
+@pytest.mark.parametrize("constraint", SHIFTED, ids=lambda item: repr(item)[:80])
+def test_a_shifted_constraint_matches_the_engine_on_a_fixed_roster(constraint, seed) -> None:
     """offset / clip shape each employee's term (or the total) exactly as the engine does."""
-    problem = _problem([rule], seed)
+    problem = _problem([constraint], seed)
     fixed = _stacked_roster(problem, seed)
     proxy: dict[str, int] = {}
     solve(problem, time_limit_seconds=5, _fixed_workers=fixed, _proxy_score=proxy)
@@ -417,22 +418,22 @@ def test_a_shifted_rule_matches_the_engine_on_a_fixed_roster(rule, seed) -> None
 
 
 @pytest.mark.parametrize("seed", range(4))
-def test_repeated_and_shifted_rules_at_once_match_the_engine(seed) -> None:
-    rules = [
+def test_repeated_and_shifted_constraints_at_once_match_the_engine(seed) -> None:
+    constraints = [
         domain.RequiredSkillCost(),
         domain.RequiredSkillCost(),  # identical: counts twice
         *SHIFTED,
         domain.UndesiredDayCost(),
-        domain.UndesiredDayCost(weight=2),  # the same rule again, other knobs
+        domain.UndesiredDayCost(weight=2),  # the same constraint again, other knobs
         domain.MaxConsecutiveDaysCost(value=2),
         domain.MaxConsecutiveDaysCost(value=2),
     ]
-    problem = _problem(rules, seed)
+    problem = _problem(constraints, seed)
     fixed = _stacked_roster(problem, seed)
     proxy: dict[str, int] = {}
     solve(problem, time_limit_seconds=5, _fixed_workers=fixed, _proxy_score=proxy)
     assert proxy == _engine_scaled(problem, fixed)
-    assert [plugin.name for plugin in registry_for(rules).plugins][:2] == [
+    assert [plugin.name for plugin in registry_for(constraints).plugins][:2] == [
         "required_skill_cost",
         "required_skill_cost#2",
     ]
@@ -455,7 +456,7 @@ def test_each_repeat_keeps_its_own_level_on_every_path(seed) -> None:
     problem = _problem(LEVELS, seed)
     fixed = _stacked_roster(problem, seed)
     candidate = _with_workers(problem, fixed)
-    specs = [rule.to_spec() for rule in candidate.model_input.rules]
+    specs = [constraint.to_spec() for constraint in candidate.model_input.constraints]
     assert [str(spec.level) if spec.level else None for spec in specs] == [
         None,
         "hard",
@@ -485,7 +486,7 @@ def test_each_repeat_keeps_its_own_level_on_every_path(seed) -> None:
 
 @pytest.mark.parametrize("level", [domain.Level.MEDIUM, "medium"])
 def test_medium_is_refused_on_cpsat(level) -> None:
-    """No medium level here: the rule schema refuses it, and so does the registry itself
+    """No medium level here: the constraint schema refuses it, and so does the registry itself
     (when the objective is built, before any term is added)."""
     with pytest.raises(ValueError, match="'hard' or 'soft'"):
         _problem([domain.RequiredSkillCost(), domain.RequiredSkillCost(level=level)])
@@ -497,7 +498,7 @@ def test_medium_is_refused_on_cpsat(level) -> None:
         )
 
 
-def _tiny(rules: list) -> ScheduleRequest:
+def _tiny(constraints: list) -> ScheduleRequest:
     """Two workers and three shifts (one on each worker's undesired day): 3^3 rosters."""
     workers = [
         WorkerModel(
@@ -515,7 +516,7 @@ def _tiny(rules: list) -> ScheduleRequest:
         for day, skill in ((0, "Skill A"), (1, "Skill A"), (2, "Skill B"))
     ]
     return ScheduleRequest(
-        model_input=SchedulingInput(workers=workers, shifts=shifts, rules=rules)
+        model_input=SchedulingInput(workers=workers, shifts=shifts, constraints=constraints)
     )
 
 
@@ -536,11 +537,11 @@ TINY = {
 }
 
 
-@pytest.mark.parametrize("rules", list(TINY.values()), ids=list(TINY))
-def test_repeated_and_shifted_rules_reach_the_brute_force_optimum(rules) -> None:
-    problem = _tiny(rules)
+@pytest.mark.parametrize("constraints", list(TINY.values()), ids=list(TINY))
+def test_repeated_and_shifted_constraints_reach_the_brute_force_optimum(constraints) -> None:
+    problem = _tiny(constraints)
     workers = range(len(problem.model_input.workers))
-    may_stay_empty = any(rule.name == "unassigned_shifts_cost" for rule in rules)
+    may_stay_empty = any(constraint.name == "unassigned_shifts_cost" for constraint in constraints)
     choices = [*workers, None] if may_stay_empty else list(workers)
     scores = (
         constraint_costs(_with_workers(problem, list(fixed)))
@@ -552,8 +553,8 @@ def test_repeated_and_shifted_rules_reach_the_brute_force_optimum(rules) -> None
     assert (found["hard"], found["soft"]) == pytest.approx(best)
 
 
-def test_json_rules_repeat_and_shift_like_specs() -> None:
-    """The server's {name, weight, offset, clip} rules pick the same instances as specs."""
+def test_json_constraints_repeat_and_shift_like_specs() -> None:
+    """The server's {name, weight, offset, clip} constraints pick the same instances as specs."""
     specs = [
         domain.UndesiredDayCost(),
         domain.UndesiredDayCost(weight=3, offset=40, clip=False),
@@ -573,7 +574,7 @@ def test_json_rules_repeat_and_shift_like_specs() -> None:
 def test_an_offset_cpsat_cannot_shape_is_refused() -> None:
     with pytest.raises(ValueError, match="offset must be an integer for CP-SAT"):
         solve(_problem([domain.UndesiredDayCost(offset=0.5)]), time_limit_seconds=1)
-    # A rule whose terms are runs, not employees, takes no offset on this model.
+    # A constraint whose terms are runs, not employees, takes no offset on this model.
     with pytest.raises(
         ValueError, match="offset is not supported by this CP-SAT model"
     ):
@@ -618,14 +619,14 @@ LITERAL_IDS = [
 @pytest.mark.parametrize("offset", [1, -1])
 @pytest.mark.parametrize("pick", LITERAL_ON_HARD, ids=LITERAL_IDS)
 def test_the_literal_offset_is_refused_on_hard_like_the_engine(pick, offset) -> None:
-    """The rule schema refuses the pick in the engine's words; so does the CP-SAT
+    """The constraint schema refuses the pick in the engine's words; so does the CP-SAT
     objective itself (before it asks whether the plugin takes offsets at all), and so
     do the engine and the score() mirror."""
     spec = pick(offset)
     message = HARD_REFUSAL.format(q=repr(spec.name))
-    for rules in ([spec], [domain.RequiredSkillCost(), spec]):
+    for constraints in ([spec], [domain.RequiredSkillCost(), spec]):
         with pytest.raises(ValueError) as refused:
-            _problem(rules)
+            _problem(constraints)
         (error,) = refused.value.errors()
         assert str(error["ctx"]["error"]) == message
     registry = registry_for([spec])
@@ -654,8 +655,8 @@ def _objective_error(picks) -> str:
     return str(refused.value)
 
 
-def test_the_plugin_api_names_a_repeated_rule_like_the_engine() -> None:
-    """The k-th plugin of a rule is named '<name>#<k>'; the engine's refusal names the rule."""
+def test_the_plugin_api_names_a_repeated_constraint_like_the_engine() -> None:
+    """The k-th plugin of a constraint is named '<name>#<k>'; the engine's refusal names the constraint."""
     literal = domain.RequiredSkillCost(offset=2, clip=False)
     message = HARD_REFUSAL.format(q="'required_skill_cost'")
     assert _objective_error([literal]) == message
@@ -675,7 +676,7 @@ def test_the_plugin_api_names_a_repeated_rule_like_the_engine() -> None:
     assert str(refused.value) == reward
 
 
-def test_the_engine_rules_come_before_what_cpsat_cannot_model() -> None:
+def test_the_engine_checks_come_before_what_cpsat_cannot_model() -> None:
     """A pick the engine refuses gets the engine's words from the plugin API too, not the
     CP-SAT limit (exponent, fractional offset) it would also hit."""
     message = HARD_REFUSAL.format(q="'required_skill_cost'")
@@ -690,24 +691,24 @@ def test_the_engine_rules_come_before_what_cpsat_cannot_model() -> None:
         domain.RequiredSkillCost(offset=1, clip=False),
     ]
     assert _objective_error(picks) == message
-    # What only CP-SAT refuses is still refused, after the engine's rules pass.
+    # What only CP-SAT refuses is still refused, after the engine's checks pass.
     assert _objective_error(picks[:1]) == (
-        "rule 'undesired_day_cost': exponent is not supported by CP-SAT"
+        "constraint 'undesired_day_cost': exponent is not supported by CP-SAT"
     )
     assert _objective_error([domain.UndesiredDayCost(offset=0.5)]) == (
-        "rule 'undesired_day_cost': offset must be an integer for CP-SAT"
+        "constraint 'undesired_day_cost': offset must be an integer for CP-SAT"
     )
 
 
 @pytest.mark.parametrize("seed", range(2))
 @pytest.mark.parametrize("offset", [1, -1])
 def test_the_same_literal_pick_on_soft_matches_the_engine(offset, seed) -> None:
-    rules = [
+    constraints = [
         domain.RequiredSkillCost(),
         domain.RequiredSkillCost(level="soft", offset=offset, clip=False),
         domain.UnassignedShiftsCost(level="soft", offset=offset, clip=False),
     ]
-    problem = _problem(rules, seed)
+    problem = _problem(constraints, seed)
     fixed = _stacked_roster(problem, seed)
     proxy: dict[str, int] = {}
     solve(problem, time_limit_seconds=5, _fixed_workers=fixed, _proxy_score=proxy)
@@ -716,7 +717,7 @@ def test_the_same_literal_pick_on_soft_matches_the_engine(offset, seed) -> None:
 
 def test_solve_request_returns_the_engine_solution_shape() -> None:
     """`solve_request` reads the request like the engine and answers with its `ScheduleSolution`."""
-    problem = _problem(models.default_rules()).model_copy(update={"timelimit": 5.0})
+    problem = _problem(models.default_constraints()).model_copy(update={"time_limit_seconds": 5.0})
     result = solve_request(problem)
     assert isinstance(result, models.ScheduleSolution)
     solved = solve(problem, time_limit_seconds=5.0)
@@ -727,3 +728,43 @@ def test_solve_request_returns_the_engine_solution_shape() -> None:
     assert sorted(listed) == sorted(shift.id for shift in problem.model_input.shifts)
     # The engine can start from it: a solution of this use case in its own format.
     models.with_initial_solution(problem, result)
+
+
+def test_solve_request_reads_the_request_under_the_engine_names(monkeypatch) -> None:
+    """The time limit, the worker count and the seed are the ones the engine would solve with.
+
+    A request holds its seed in two places. The engine uses the top-level one once it was
+    given or set and `settings.random_seed` until then; the earlier names of the other two
+    settings are the same fields.
+    """
+    # The package exports the function `solve` under the submodule's name, so take the module by its path.
+    module = importlib.import_module("external_solver.employee_scheduling.solve")
+
+    seen: list[dict] = []
+
+    def record(request, **keywords):
+        seen.append(keywords)
+        return request
+
+    monkeypatch.setattr(module, "solve", record)
+    monkeypatch.setattr(module, "to_solution", lambda solved: solved)
+    model_input = _problem(models.default_constraints()).model_input
+
+    def keywords_of(request: ScheduleRequest) -> tuple:
+        seen.clear()
+        solve_request(request)
+        return tuple(seen[0][name] for name in ("time_limit_seconds", "parallel_solver_count", "random_seed"))
+
+    assert keywords_of(ScheduleRequest(model_input=model_input)) == (30.0, 1, 0)
+    named = ScheduleRequest(model_input=model_input, time_limit_seconds=2, parallel_solver_count=3, random_seed=5)
+    assert keywords_of(named) == (2.0, 3, 5)
+    earlier = ScheduleRequest.model_validate(
+        {"model_input": model_input.model_dump(), "timelimit": 2, "num_workers": 3, "settings": {"random_seed": 7}}
+    )
+    assert keywords_of(earlier) == (2.0, 3, 7)
+    # Set after the request was built: the top level wins once it is set, settings until then.
+    later = ScheduleRequest(model_input=model_input)
+    later.settings.random_seed = 11
+    assert keywords_of(later)[2] == 11
+    later.random_seed = 13
+    assert keywords_of(later)[2] == 13

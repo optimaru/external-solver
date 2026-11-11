@@ -9,13 +9,13 @@ compared score for score.
 It is released on GitHub, not on PyPI. Install a release tag:
 
 ```sh
-pip install "external-solver @ git+https://github.com/optimaru/external-solver@v0.2.3"
+pip install "external-solver @ git+https://github.com/optimaru/external-solver@v0.3.0"
 ```
 
 or, as a dependency in `pyproject.toml`:
 
 ```toml
-dependencies = ["external-solver @ git+https://github.com/optimaru/external-solver@v0.2.3"]
+dependencies = ["external-solver @ git+https://github.com/optimaru/external-solver@v0.3.0"]
 ```
 
 ```python
@@ -24,7 +24,7 @@ from optimaru.knapsack.models import KnapsackProblemModel
 from external_solver import knapsack as exact
 
 problem = KnapsackProblemModel.model_validate(data)
-result = exact.solve(problem, time_limit_seconds=10, num_workers=8)
+result = exact.solve(problem, time_limit_seconds=10, parallel_solver_count=8)
 print(result.score_hard, result.score_soft)
 ```
 
@@ -34,13 +34,19 @@ Every subpackage is named like the `optimaru` subpackage it mirrors:
 
 | Subpackage | Entry point |
 | --- | --- |
-| `assembly_line_balancing`, `bed_allocation`, `bin_packing`, `conference_scheduling`, `facility_location`, `flight_crew_scheduling`, `food_packaging`, `knapsack`, `maintenance_scheduling`, `max_cut`, `meeting_scheduling`, `project_job_scheduling`, `quadratic_assignment`, `semiconductor_scheduling`, `sports_league_scheduling`, `task_assigning`, `tournament_scheduling` | `solve(problem, *, time_limit_seconds=30.0, random_seed=0, num_workers=1, constraints=None)` |
-| `employee_scheduling` | `solve(problem, *, time_limit_seconds=30.0, random_seed=0, num_workers=1)` and `solve_request(request)`, which returns the engine's `ScheduleSolution`; the rules are `problem.model_input.rules` |
+| `assembly_line_balancing`, `bed_allocation`, `bin_packing`, `conference_scheduling`, `facility_location`, `flight_crew_scheduling`, `food_packaging`, `knapsack`, `maintenance_scheduling`, `max_cut`, `meeting_scheduling`, `project_job_scheduling`, `quadratic_assignment`, `semiconductor_scheduling`, `sports_league_scheduling`, `task_assigning`, `tournament_scheduling` | `solve(problem, *, time_limit_seconds=30.0, random_seed=0, parallel_solver_count=1, constraints=None)` |
+| `employee_scheduling` | `solve(problem, *, time_limit_seconds=30.0, random_seed=0, parallel_solver_count=1)` and `solve_request(request)`, which returns the engine's `ScheduleSolution`; the constraints are `problem.model_input.constraints` |
 | `order_picking` | `solve(...)` and `solve_request(request, ...)` |
 | `pickup_delivery` | `solve_request(request, *, constraints=None, ...)` |
 
-A `solve_request` reads the time limit, seed and worker count from the request,
-like the engine's `solve_request`, and returns the same result model. Each
+The keywords have the names of the engine's `solve`. `parallel_solver_count` is
+the number of CP-SAT search workers (threads of one search; the engine runs that
+many independent starts). `num_workers`, its name up to 0.2, is still read;
+giving both is refused.
+
+A `solve_request` reads the time limit, seed and worker count from the request
+(`time_limit_seconds`, `random_seed`, `parallel_solver_count`), like the engine's
+`solve_request`, and returns the same result model. Each
 subpackage also has `catalog()`, the selectable constraints with their default level
 and weight. `vehicle_routing` and `school_timetabling` have no model here yet.
 
@@ -74,7 +80,9 @@ out before a first solution was found.
 
 ## Versions
 
-`external-solver 0.2.x` follows the `optimaru 0.4` constraint contract. The
+`external-solver 0.3.x` follows `optimaru 0.5` (0.2.x followed `optimaru 0.4`):
+its constraint contract, and the names of its `solve` keywords and request
+fields. The
 models are the reference CP-SAT formulations kept in optimaru's `benchmarks/`
 directory, packaged here so they can be installed next to the engine.
 

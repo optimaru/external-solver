@@ -6,7 +6,7 @@ Each plugin subclasses the engine's spec of the same name and carries only
 solvers cannot disagree on a default. The registry follows the
 ``list_constraints()`` order.
 
-The circuit formulation in solve.py enforces the three request-coupling rules
+The circuit formulation in solve.py enforces the three request-coupling constraints
 (``paired_request_cost``, ``same_vehicle_cost``, ``pickup_before_dropoff_cost``)
 by construction: a request rides one vehicle or none, pickup first. Their
 plugins add no objective term (the raw cost is 0 in every CP-SAT solution) and
@@ -161,16 +161,16 @@ class MaxRouteRadiusCost(domain.MaxRouteRadiusCost, _VehicleLimitPlugin):
 
 
 class _StructuralPlugin(ConstraintPlugin[PdpContext]):
-    """A request-coupling rule the circuit model enforces by construction.
+    """A request-coupling constraint the circuit model enforces by construction.
 
     solve.py assigns each request to one vehicle or to none (``assigned`` /
     ``unassigned``: exactly one) and orders its pickup before its dropoff, so
     the raw cost is 0 in every CP-SAT solution and nothing joins the
-    objective. That is the engine's rule at its default (hard, weight 1000) —
+    objective. That is the engine's constraint at its default (hard, weight 1000) —
     in the limit; the model cannot price a violation, so it refuses a
     selection that would make one acceptable: a level other than hard
     (``"medium"`` or ``"soft"``), or an explicit weight other than the
-    default. Leaving the rule out of a selection does not lift the structure.
+    default. Leaving the constraint out of a selection does not lift the structure.
     """
 
     # Its total is 0 in every CP-SAT solution: one constant term, so an offset

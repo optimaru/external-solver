@@ -18,6 +18,7 @@ from optimaru.assembly_line_balancing.constraints import Constraint
 from optimaru.assembly_line_balancing.models import AssemblyLineBalancingProblemModel
 from ortools.sat.python import cp_model
 
+from external_solver._keywords import reads_num_workers
 from external_solver._plugins import ConstraintConfig, ObjectiveBuilder
 from external_solver.errors import NoSolutionError
 
@@ -91,12 +92,13 @@ def build(
     return Built(model, context, objective)
 
 
+@reads_num_workers
 def solve(
     problem: AssemblyLineBalancingProblemModel,
     *,
     time_limit_seconds: float = 30.0,
     random_seed: int = 0,
-    num_workers: int = 1,
+    parallel_solver_count: int = 1,
     constraints: Iterable[ConstraintConfig | Constraint | str | Mapping] | None = None,
 ) -> AssemblyLineBalancingProblemModel:
     """Solve ``problem`` without mutating it and return a scored solution."""
@@ -104,7 +106,7 @@ def solve(
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = time_limit_seconds
     solver.parameters.random_seed = random_seed
-    solver.parameters.num_search_workers = max(1, num_workers)
+    solver.parameters.num_search_workers = max(1, parallel_solver_count)
     status = built.objective.solve(solver)
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         raise NoSolutionError(solver.status_name(status))

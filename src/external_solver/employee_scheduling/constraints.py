@@ -5,10 +5,10 @@ the domain spec (so a plugin IS a spec instance, with the same knobs and
 parameters) and adds only its CP-SAT formulation in `build()`, under the
 constraint's own name and in its own units. The default level, weight and
 reward flag come from the engine (`es_scheduling.constraint_info()`, read by
-cpsat-common), never from here. A request may hold several rules of one type
+cpsat-common), never from here. A request may hold several constraints of one type
 with different parameters, so the registry is assembled per request
 (`registry_for`), one plugin per pick, the k-th repeat of a name named
-`"<name>#<k>"` (the engine's `constraint_costs()` key rule).
+`"<name>#<k>"` (the keys of the engine's `constraint_costs()`).
 
 Soft terms are multiplied by `SCALE`, because some are fractional and a CP-SAT
 objective is not. Those terms round to that grid, and `penalize_half_ssd` stands
@@ -16,10 +16,10 @@ in for a root, so the objective is close to the engine's score but not equal to
 it. The reported score is always the engine's own (`constraint_costs`).
 
 Offsets: a pick's ``offset`` / ``clip`` shape each engine unit (an employee, or
-a global rule's total) on its own, so only a plugin that adds exactly one term
+a global constraint's total) on its own, so only a plugin that adds exactly one term
 per evaluated employee — every employee, or a worker scope's in-range ones, a
 constant 0 included — or one term for a global total takes them
-(``terms_per_unit``): ``required_skill_cost``, the three date rules
+(``terms_per_unit``): ``required_skill_cost``, the three date constraints
 (``employee_unavailability_cost``, ``undesired_day_cost``,
 ``desired_day_cost``) and ``unassigned_shifts_cost``. The registry refuses an
 offset on every other plugin (their terms are runs, pairs or windows, not
@@ -58,15 +58,15 @@ def score(costs: dict, constraints: None = None) -> Score:
     """Read the engine's verdict out of `solve.constraint_costs`.
 
     The comparison runner expects this split between raw costs and score. The
-    rule list lives in the request, so there is nothing to select here.
+    constraint list lives in the request, so there is nothing to select here.
     """
     if constraints is not None:
-        raise ValueError("the rules are part of the request; change them there")
+        raise ValueError("the constraints are part of the request; change them there")
     return Score(costs["hard"], costs["soft"])
 
 
 class Scope(NamedTuple):
-    """The workers and shifts a rule applies to, as engine indices."""
+    """The workers and shifts a constraint applies to, as engine indices."""
 
     workers: tuple[int, ...]
     shifts: tuple[int, ...]
@@ -95,7 +95,7 @@ def date_overlap(start: int, end: int, dates: Iterable[int]) -> int:
 
 @dataclass
 class ScheduleContext:
-    """The decision variables and the derived literals the rules share."""
+    """The decision variables and the derived literals the constraints share."""
 
     model: cp_model.CpModel
     problem: ScheduleRequest
@@ -114,7 +114,7 @@ class ScheduleContext:
         self.false = self.model.new_bool_var("false")
         self.model.add(self.false == 0)
 
-    def scope(self, rule: Any) -> Scope:
+    def scope(self, constraint: Any) -> Scope:
         """`ScopedUnit`: None is everyone, a list is exactly its valid indices."""
 
         def resolve(indices: list[int] | None, size: int) -> tuple[int, ...]:
@@ -123,8 +123,8 @@ class ScheduleContext:
             return tuple(sorted({i for i in indices if 0 <= i < size}))
 
         return Scope(
-            resolve(rule.worker_indices, len(self.workers)),
-            resolve(rule.shift_indices, len(self.shifts)),
+            resolve(constraint.worker_indices, len(self.workers)),
+            resolve(constraint.shift_indices, len(self.shifts)),
         )
 
     def by_day(self, shifts: Iterable[int], location: str = "") -> list[tuple[int, ...]]:
@@ -228,12 +228,12 @@ class ScheduleContext:
         return self._only[key]
 
 
-class RulePlugin(ConstraintPlugin[ScheduleContext]):
-    """CP-SAT formulation mixed into one domain spec (the plugin is the rule).
+class SchedulePlugin(ConstraintPlugin[ScheduleContext]):
+    """CP-SAT formulation mixed into one domain spec (the plugin is the constraint).
 
     The level is the engine's: ``level=None`` keeps the C++ component's default
     level (the ``constraint_info()`` row, `spec.level`), otherwise ``"hard"`` or
-    ``"soft"`` — the rule `ObjectiveBuilder.level_of` applies too.
+    ``"soft"``, as `ObjectiveBuilder.level_of` reads it too.
     """
 
     # Whether the raw cost can be fractional. Only the soft level has a fixed-point
@@ -251,19 +251,19 @@ class RulePlugin(ConstraintPlugin[ScheduleContext]):
     def check_supported(self) -> None:
         """Refuse what this model cannot express, before any variable exists.
 
-        `RuleRegistry.objective` calls it once the engine's own rules (the
+        `ScheduleRegistry.objective` calls it once the engine's own checks (the
         level, reward and literal-offset refusals of `ObjectiveBuilder`) have
         passed for every pick, so a pick the engine refuses gets the engine's
         words, as it does from `solve()`.
         """
         if float(self.exponent) != 1.0:
-            raise ValueError(f"rule {self.name!r}: exponent is not supported by CP-SAT")
+            raise ValueError(f"constraint {self.name!r}: exponent is not supported by CP-SAT")
         if self.weight is not None and not float(self.weight).is_integer():
-            raise ValueError(f"rule {self.name!r}: weight must be an integer for CP-SAT")
+            raise ValueError(f"constraint {self.name!r}: weight must be an integer for CP-SAT")
         if self.is_hard and self.fractional:
-            raise ValueError(f"rule {self.name!r}: a fractional cost cannot be hard for CP-SAT")
+            raise ValueError(f"constraint {self.name!r}: a fractional cost cannot be hard for CP-SAT")
         if not float(self.offset).is_integer():
-            raise ValueError(f"rule {self.name!r}: offset must be an integer for CP-SAT")
+            raise ValueError(f"constraint {self.name!r}: offset must be an integer for CP-SAT")
 
     def penalize(self, objective: ObjectiveBuilder, magnitude: Any, bound: int) -> None:
         objective.add(self.name, self.scale * magnitude, bound=self.scale * bound)
@@ -331,7 +331,7 @@ class RulePlugin(ConstraintPlugin[ScheduleContext]):
 
         ssd / 2 is the root's tangent at ssd = 1, less a constant. Both fall as
         the counts even out, but this one weighs a large imbalance more heavily
-        against the other soft rules than the engine does.
+        against the other soft constraints than the engine does.
         """
         model = context.model
         n = len(counts)
@@ -382,7 +382,7 @@ class RulePlugin(ConstraintPlugin[ScheduleContext]):
                 self.penalize(objective, (limit - length) * context.hit(run), limit - length)
 
 
-class RequiredSkillCost(domain.RequiredSkillCost, RulePlugin):
+class RequiredSkillCost(domain.RequiredSkillCost, SchedulePlugin):
     terms_per_unit = True  # one term per evaluated employee, the engine's unit
 
     def build(self, context: ScheduleContext, objective: ObjectiveBuilder) -> None:
@@ -397,7 +397,7 @@ class RequiredSkillCost(domain.RequiredSkillCost, RulePlugin):
             self.penalize(objective, sum(lacking) if lacking else 0, len(lacking))
 
 
-class DateRule(RulePlugin):
+class DatePlugin(SchedulePlugin):
     """A per-(worker, shift) table of overlap minutes with a set of days.
 
     One term per evaluated employee: the minutes (or, ``per_day``, the shifts)
@@ -423,19 +423,19 @@ class DateRule(RulePlugin):
             add(objective, magnitude, sum(cost for cost, _ in terms))
 
 
-class EmployeeUnavailabilityCost(domain.EmployeeUnavailabilityCost, DateRule):
+class EmployeeUnavailabilityCost(domain.EmployeeUnavailabilityCost, DatePlugin):
     dates = "unavailable_dates"
 
 
-class UndesiredDayCost(domain.UndesiredDayCost, DateRule):
+class UndesiredDayCost(domain.UndesiredDayCost, DatePlugin):
     dates = "undesired_dates"
 
 
-class DesiredDayCost(domain.DesiredDayCost, DateRule):
+class DesiredDayCost(domain.DesiredDayCost, DatePlugin):
     dates = "desired_dates"
 
 
-class DesiredShiftCost(domain.DesiredShiftCost, RulePlugin):
+class DesiredShiftCost(domain.DesiredShiftCost, SchedulePlugin):
     def build(self, context: ScheduleContext, objective: ObjectiveBuilder) -> None:
         scope = context.scope(self)
         wishes = {worker: {tuple(item) for item in context.workers[worker].desired_shifts} for worker in scope.workers}
@@ -446,7 +446,7 @@ class DesiredShiftCost(domain.DesiredShiftCost, RulePlugin):
                 self.reward(objective, sum(literals), 1)
 
 
-class PairRule(RulePlugin):
+class PairPlugin(SchedulePlugin):
     """A cost per pair of shifts held by one worker, by the two shifts' times."""
 
     def pair_cost(self, left: tuple[int, int], right: tuple[int, int]) -> int:
@@ -470,17 +470,17 @@ class PairRule(RulePlugin):
                     self.penalize(objective, unit * context.pairs(worker, left, right), unit * top)
 
 
-class ShiftOverlapCost(domain.ShiftOverlapCost, PairRule):
+class ShiftOverlapCost(domain.ShiftOverlapCost, PairPlugin):
     def pair_cost(self, left: tuple[int, int], right: tuple[int, int]) -> int:
         return max(0, min(left[1], right[1]) - max(left[0], right[0]))
 
 
-class MaxOneShiftPerDayCost(domain.MaxOneShiftPerDayCost, PairRule):
+class MaxOneShiftPerDayCost(domain.MaxOneShiftPerDayCost, PairPlugin):
     def pair_cost(self, left: tuple[int, int], right: tuple[int, int]) -> int:
         return int(left[0] // MINUTES_PER_DAY == right[0] // MINUTES_PER_DAY)
 
 
-class MinRestCost(domain.MinRestCost, PairRule):
+class MinRestCost(domain.MinRestCost, PairPlugin):
     def pair_cost(self, left: tuple[int, int], right: tuple[int, int]) -> int:
         early, late = (left, right) if left[0] <= right[0] else (right, left)
         if early[1] > late[0]:
@@ -488,7 +488,7 @@ class MinRestCost(domain.MinRestCost, PairRule):
         return max(0, self.min_gap_minutes - (late[0] - early[1]))
 
 
-class ShiftCountImbalanceCost(domain.ShiftCountImbalanceCost, RulePlugin):
+class ShiftCountImbalanceCost(domain.ShiftCountImbalanceCost, SchedulePlugin):
     fractional = True
 
     def build(self, context: ScheduleContext, objective: ObjectiveBuilder) -> None:
@@ -514,7 +514,7 @@ class ShiftCountImbalanceCost(domain.ShiftCountImbalanceCost, RulePlugin):
         objective.add(self.name, half * sum(context.squares(loads, top)), bound=half * top**2)
 
 
-class MaxConsecutiveDaysCost(domain.MaxConsecutiveDaysCost, RulePlugin):
+class MaxConsecutiveDaysCost(domain.MaxConsecutiveDaysCost, SchedulePlugin):
     def build(self, context: ScheduleContext, objective: ObjectiveBuilder) -> None:
         scope = context.scope(self)
         days = context.by_day(scope.shifts)
@@ -522,7 +522,7 @@ class MaxConsecutiveDaysCost(domain.MaxConsecutiveDaysCost, RulePlugin):
             self.penalize_run_excess(context, objective, context.presence(worker, days), self.value)
 
 
-class MinConsecutiveDaysCost(domain.MinConsecutiveDaysCost, RulePlugin):
+class MinConsecutiveDaysCost(domain.MinConsecutiveDaysCost, SchedulePlugin):
     def build(self, context: ScheduleContext, objective: ObjectiveBuilder) -> None:
         scope = context.scope(self)
         days = context.by_day(scope.shifts)
@@ -530,7 +530,7 @@ class MinConsecutiveDaysCost(domain.MinConsecutiveDaysCost, RulePlugin):
             self.penalize_run_shortfall(context, objective, context.presence(worker, days), self.value)
 
 
-class MaxConsecutiveDaysOffCost(domain.MaxConsecutiveDaysOffCost, RulePlugin):
+class MaxConsecutiveDaysOffCost(domain.MaxConsecutiveDaysOffCost, SchedulePlugin):
     def build(self, context: ScheduleContext, objective: ObjectiveBuilder) -> None:
         """A run of off days between two worked days holds len - value windows."""
         scope = context.scope(self)
@@ -559,7 +559,7 @@ class MaxConsecutiveDaysOffCost(domain.MaxConsecutiveDaysOffCost, RulePlugin):
         return seen
 
 
-class RestAfterConsecutiveWorkCost(domain.RestAfterConsecutiveWorkCost, RulePlugin):
+class RestAfterConsecutiveWorkCost(domain.RestAfterConsecutiveWorkCost, SchedulePlugin):
     def build(self, context: ScheduleContext, objective: ObjectiveBuilder) -> None:
         scope = context.scope(self)
         days = context.by_day(scope.shifts)
@@ -580,7 +580,7 @@ class RestAfterConsecutiveWorkCost(domain.RestAfterConsecutiveWorkCost, RulePlug
                     )
 
 
-class WeeklyMinutes(RulePlugin):
+class WeeklyMinutes(SchedulePlugin):
     def anchor(self) -> int:
         return self.week_anchor
 
@@ -625,7 +625,7 @@ class MinWeeklyMinutesCost(domain.MinWeeklyMinutesCost, WeeklyMinutes):
         self.penalize_outside(context, objective, total, top, self.minutes, -1)
 
 
-class MinWeeklyRestDaysCost(domain.MinWeeklyRestDaysCost, RulePlugin):
+class MinWeeklyRestDaysCost(domain.MinWeeklyRestDaysCost, SchedulePlugin):
     def build(self, context: ScheduleContext, objective: ObjectiveBuilder) -> None:
         scope = context.scope(self)
         for week in context.weeks(scope.shifts):
@@ -641,20 +641,20 @@ class MinWeeklyRestDaysCost(domain.MinWeeklyRestDaysCost, RulePlugin):
                 )
 
 
-class AssignmentCost(domain.AssignmentCost, RulePlugin):
+class AssignmentCost(domain.AssignmentCost, SchedulePlugin):
     fractional = True
 
     def build(self, context: ScheduleContext, objective: ObjectiveBuilder) -> None:
-        rule = self
-        scope = context.scope(rule)
+        constraint = self
+        scope = context.scope(constraint)
         for shift in scope.shifts:
             data = context.shifts[shift]
-            base = rule.cost_per_shift
-            if rule.cost_per_hour > 0.0:
-                base = rule.cost_per_hour * (data.end - data.start) / 60.0
+            base = constraint.cost_per_shift
+            if constraint.cost_per_hour > 0.0:
+                base = constraint.cost_per_hour * (data.end - data.start) / 60.0
             terms = []
             for worker in scope.workers:
-                row = rule.shift_costs.get(context.workers[worker].id, {})
+                row = constraint.shift_costs.get(context.workers[worker].id, {})
                 terms.append((round(self.scale * row.get(data.id, base)), worker))
             magnitude = sum(cost * context.x[shift, worker] for cost, worker in terms)
             # Already scaled. A cost may be negative, and the term is 0 when the
@@ -663,7 +663,7 @@ class AssignmentCost(domain.AssignmentCost, RulePlugin):
             objective.add(self.name, magnitude, bound=max(costs) - min(costs))
 
 
-class UnassignedShiftsCost(domain.UnassignedShiftsCost, RulePlugin):
+class UnassignedShiftsCost(domain.UnassignedShiftsCost, SchedulePlugin):
     terms_per_unit = True  # global in the engine: one term, the total
 
     def build(self, context: ScheduleContext, objective: ObjectiveBuilder) -> None:
@@ -671,13 +671,13 @@ class UnassignedShiftsCost(domain.UnassignedShiftsCost, RulePlugin):
         self.penalize(objective, unassigned, len(context.unassigned))
 
 
-class ShiftCountGapCost(domain.ShiftCountGapCost, RulePlugin):
+class ShiftCountGapCost(domain.ShiftCountGapCost, SchedulePlugin):
     def build(self, context: ScheduleContext, objective: ObjectiveBuilder) -> None:
         loads = [context.load(worker) for worker in range(len(context.workers))]
         self.penalize_gap(context, objective, loads, len(context.shifts), self.tolerance)
 
 
-class WeeklyMinutesGapCost(domain.WeeklyMinutesGapCost, RulePlugin):
+class WeeklyMinutesGapCost(domain.WeeklyMinutesGapCost, SchedulePlugin):
     fractional = True
 
     def build(self, context: ScheduleContext, objective: ObjectiveBuilder) -> None:
@@ -695,48 +695,48 @@ class WeeklyMinutesGapCost(domain.WeeklyMinutesGapCost, RulePlugin):
             )
 
 
-class ShiftCoverageCost(domain.ShiftCoverageCost, RulePlugin):
+class ShiftCoverageCost(domain.ShiftCoverageCost, SchedulePlugin):
     def build(self, context: ScheduleContext, objective: ObjectiveBuilder) -> None:
-        # This rule scopes itself: unlike ScopedUnit, an empty list means all.
-        rule = self
+        # This constraint scopes itself: unlike ScopedUnit, an empty list means all.
+        constraint = self
         everyone = range(len(context.workers))
         counted = [
             worker
-            for worker in sorted(set(rule.worker_indices or everyone) & set(everyone))
-            if not rule.worker_skill or rule.worker_skill in context.workers[worker].skills
+            for worker in sorted(set(constraint.worker_indices or everyone) & set(everyone))
+            if not constraint.worker_skill or constraint.worker_skill in context.workers[worker].skills
         ]
         every_shift = range(len(context.shifts))
         groups: defaultdict[tuple[int, str], list[int]] = defaultdict(list)
-        for shift in sorted(set(rule.shift_indices or every_shift) & set(every_shift)):
+        for shift in sorted(set(constraint.shift_indices or every_shift) & set(every_shift)):
             groups[context.day[shift], context.shifts[shift].location].append(shift)
         for shifts in groups.values():
             total = sum(context.x[s, w] for s in shifts for w in counted)
-            self.penalize_outside(context, objective, total, len(shifts), rule.min_count, rule.max_count)
+            self.penalize_outside(context, objective, total, len(shifts), constraint.min_count, constraint.max_count)
 
 
-class LocationRunLengthCost(domain.LocationRunLengthCost, RulePlugin):
+class LocationRunLengthCost(domain.LocationRunLengthCost, SchedulePlugin):
     def build(self, context: ScheduleContext, objective: ObjectiveBuilder) -> None:
-        rule = self
-        scope = context.scope(rule)
-        days = context.by_day(scope.shifts, rule.location)
+        constraint = self
+        scope = context.scope(constraint)
+        days = context.by_day(scope.shifts, constraint.location)
         for worker in scope.workers:
             present = context.presence(worker, days)
-            self.penalize_run_shortfall(context, objective, present, rule.min_run, rule.waive_min_at_end)
-            if rule.max_run >= 0:
-                self.penalize_run_excess(context, objective, present, rule.max_run)
+            self.penalize_run_shortfall(context, objective, present, constraint.min_run, constraint.waive_min_at_end)
+            if constraint.max_run >= 0:
+                self.penalize_run_excess(context, objective, present, constraint.max_run)
 
 
-class RestAfterLocationRunCost(domain.RestAfterLocationRunCost, RulePlugin):
+class RestAfterLocationRunCost(domain.RestAfterLocationRunCost, SchedulePlugin):
     def build(self, context: ScheduleContext, objective: ObjectiveBuilder) -> None:
-        rule = self
-        scope = context.scope(rule)
-        at_location = context.by_day(scope.shifts, rule.location)
+        constraint = self
+        scope = context.scope(constraint)
+        at_location = context.by_day(scope.shifts, constraint.location)
         days = context.by_day(scope.shifts)
         for worker in scope.workers:
             present = context.presence(worker, at_location)
             worked = context.presence(worker, days)
             for last in range(context.horizon - 1):
-                for later in range(last + 1, min(last + rule.rest_days + 1, context.horizon)):
+                for later in range(last + 1, min(last + constraint.rest_days + 1, context.horizon)):
                     self.penalize(
                         objective,
                         context.hit([present[last], present[last + 1].negated(), worked[later]]),
@@ -744,14 +744,14 @@ class RestAfterLocationRunCost(domain.RestAfterLocationRunCost, RulePlugin):
                     )
 
 
-class LocationRunGapCost(domain.LocationRunGapCost, RulePlugin):
+class LocationRunGapCost(domain.LocationRunGapCost, SchedulePlugin):
     def build(self, context: ScheduleContext, objective: ObjectiveBuilder) -> None:
-        rule = self
-        scope = context.scope(rule)
-        days = context.by_day(scope.shifts, rule.location)
+        constraint = self
+        scope = context.scope(constraint)
+        days = context.by_day(scope.shifts, constraint.location)
         for worker in scope.workers:
             present = context.presence(worker, days)
-            for gap in range(1, rule.min_gap):
+            for gap in range(1, constraint.min_gap):
                 for last in range(context.horizon - gap - 1):
                     pattern = [
                         present[last],
@@ -760,26 +760,28 @@ class LocationRunGapCost(domain.LocationRunGapCost, RulePlugin):
                     ]
                     self.penalize(
                         objective,
-                        (rule.min_gap - gap) * context.hit(pattern),
-                        rule.min_gap - gap,
+                        (constraint.min_gap - gap) * context.hit(pattern),
+                        constraint.min_gap - gap,
                     )
 
 
-class WorkerLocationCountCost(domain.WorkerLocationCountCost, RulePlugin):
+class WorkerLocationCountCost(domain.WorkerLocationCountCost, SchedulePlugin):
     def build(self, context: ScheduleContext, objective: ObjectiveBuilder) -> None:
-        rule = self
-        scope = context.scope(rule)
+        constraint = self
+        scope = context.scope(constraint)
         shifts = [
-            shift for shift in scope.shifts if not rule.location or context.shifts[shift].location == rule.location
+            shift
+            for shift in scope.shifts
+            if not constraint.location or context.shifts[shift].location == constraint.location
         ]
         for worker in scope.workers:
-            if rule.worker_skill and rule.worker_skill not in context.workers[worker].skills:
+            if constraint.worker_skill and constraint.worker_skill not in context.workers[worker].skills:
                 continue
             total = sum(context.x[shift, worker] for shift in shifts)
-            self.penalize_outside(context, objective, total, len(shifts), rule.min_count, rule.max_count)
+            self.penalize_outside(context, objective, total, len(shifts), constraint.min_count, constraint.max_count)
 
 
-class DayPatternCost(domain.DayPatternCost, RulePlugin):
+class DayPatternCost(domain.DayPatternCost, SchedulePlugin):
     def build(self, context: ScheduleContext, objective: ObjectiveBuilder) -> None:
         tokens = self.pattern.split(",")
         known = {shift.location for shift in context.shifts}
@@ -820,12 +822,12 @@ class DayPatternCost(domain.DayPatternCost, RulePlugin):
         return [only_at(token) if token in known else context.false]
 
 
-class TargetDaysOffCost(domain.TargetDaysOffCost, RulePlugin):
+class TargetDaysOffCost(domain.TargetDaysOffCost, SchedulePlugin):
     def build(self, context: ScheduleContext, objective: ObjectiveBuilder) -> None:
-        rule = self
-        scope = context.scope(rule)
+        constraint = self
+        scope = context.scope(constraint)
         days = context.by_day(scope.shifts)
-        targets = sorted({d for d in rule.target_days if 0 <= d < context.horizon})
+        targets = sorted({d for d in constraint.target_days if 0 <= d < context.horizon})
         for worker in scope.workers:
             worked = context.presence(worker, [days[d] for d in targets])
             self.penalize_outside(
@@ -833,45 +835,45 @@ class TargetDaysOffCost(domain.TargetDaysOffCost, RulePlugin):
                 objective,
                 len(targets) - sum(worked),
                 len(targets),
-                rule.min_count,
+                constraint.min_count,
                 -1,
             )
 
 
-class WorkerDayCountInRangeCost(domain.WorkerDayCountInRangeCost, RulePlugin):
+class WorkerDayCountInRangeCost(domain.WorkerDayCountInRangeCost, SchedulePlugin):
     def build(self, context: ScheduleContext, objective: ObjectiveBuilder) -> None:
-        rule = self
-        if rule.hi < rule.lo:
+        constraint = self
+        if constraint.hi < constraint.lo:
             return
-        scope = context.scope(rule)
-        days = context.by_day(scope.shifts, rule.location)
-        window = days[rule.lo : rule.hi + 1]
+        scope = context.scope(constraint)
+        days = context.by_day(scope.shifts, constraint.location)
+        window = days[constraint.lo : constraint.hi + 1]
         for worker in scope.workers:
             self.penalize_outside(
                 context,
                 objective,
                 sum(context.presence(worker, window)),
                 len(window),
-                rule.min_count,
-                rule.max_count,
+                constraint.min_count,
+                constraint.max_count,
             )
 
 
-class LocationImbalanceCost(domain.LocationImbalanceCost, RulePlugin):
+class LocationImbalanceCost(domain.LocationImbalanceCost, SchedulePlugin):
     @property
     def fractional(self) -> bool:
         return self.metric == "ssd"
 
     def build(self, context: ScheduleContext, objective: ObjectiveBuilder) -> None:
-        rule = self
+        constraint = self
         workers = [
             worker
             for worker in range(len(context.workers))
-            if not rule.worker_skill or rule.worker_skill in context.workers[worker].skills
+            if not constraint.worker_skill or constraint.worker_skill in context.workers[worker].skills
         ]
-        if rule.off_target_days:
+        if constraint.off_target_days:
             days = context.by_day(range(len(context.shifts)))
-            targets = sorted({d for d in rule.off_target_days if 0 <= d < context.horizon})
+            targets = sorted({d for d in constraint.off_target_days if 0 <= d < context.horizon})
             top = len(targets)
             counts = [len(targets) - sum(context.presence(worker, [days[d] for d in targets])) for worker in workers]
             total_top = top * len(workers)
@@ -879,19 +881,19 @@ class LocationImbalanceCost(domain.LocationImbalanceCost, RulePlugin):
             shifts = tuple(
                 shift
                 for shift in range(len(context.shifts))
-                if not rule.location or context.shifts[shift].location == rule.location
+                if not constraint.location or context.shifts[shift].location == constraint.location
             )
             top = total_top = len(shifts)
             counts = [context.count(worker, shifts) for worker in workers]
-        if rule.metric == "gap":
-            self.penalize_gap(context, objective, counts, top, rule.tolerance)
+        if constraint.metric == "gap":
+            self.penalize_gap(context, objective, counts, top, constraint.tolerance)
         else:
             self.penalize_half_ssd(context, objective, counts, top, total_top)
 
 
-class WorkerPairingCost(domain.WorkerPairingCost, RulePlugin):
+class WorkerPairingCost(domain.WorkerPairingCost, SchedulePlugin):
     def build(self, context: ScheduleContext, objective: ObjectiveBuilder) -> None:
-        rule = self
+        constraint = self
         buckets: defaultdict[tuple[int, str], list[int]] = defaultdict(list)
         for shift, data in enumerate(context.shifts):
             buckets[context.day[shift], data.location].append(shift)
@@ -901,10 +903,10 @@ class WorkerPairingCost(domain.WorkerPairingCost, RulePlugin):
                 return context.any_of(worker, shifts)
             return context.false
 
-        for bucket in set(zip(rule.bucket_days, rule.bucket_locations)):
+        for bucket in set(zip(constraint.bucket_days, constraint.bucket_locations)):
             shifts = tuple(buckets.get(bucket, ()))
-            anchor, paired = holds(rule.anchor, shifts), holds(rule.paired, shifts)
-            if rule.penalty:
+            anchor, paired = holds(constraint.anchor, shifts), holds(constraint.paired, shifts)
+            if constraint.penalty:
                 self.penalize(objective, context.hit([anchor, paired]), 1)
                 continue
             differs = context.model.new_bool_var("pair_differs")
@@ -913,7 +915,7 @@ class WorkerPairingCost(domain.WorkerPairingCost, RulePlugin):
             self.penalize(objective, differs, 1)
 
 
-PLUGINS: dict[str, type[RulePlugin]] = {
+PLUGINS: dict[str, type[SchedulePlugin]] = {
     plugin.name: plugin
     for plugin in (
         RequiredSkillCost,
@@ -950,11 +952,11 @@ PLUGINS: dict[str, type[RulePlugin]] = {
 }
 
 
-class RuleRegistry(ConstraintRegistry[ScheduleContext]):
-    """The registry of one request's rules (`registry_for`).
+class ScheduleRegistry(ConstraintRegistry[ScheduleContext]):
+    """The registry of one request's constraints (`registry_for`).
 
-    `objective()` checks the engine's rules for every pick first (cpsat-common's
-    `ObjectiveBuilder`, in the engine's words, under the rule's own name for a
+    `objective()` runs the engine's checks for every pick first (cpsat-common's
+    `ObjectiveBuilder`, in the engine's words, under the constraint's own name for a
     repeat too), then what this model cannot express (`check_supported`).
     """
 
@@ -965,8 +967,8 @@ class RuleRegistry(ConstraintRegistry[ScheduleContext]):
         return objective
 
 
-def registry_for(rules: Iterable[Any]) -> RuleRegistry:
-    """One plugin per pick (a spec, or a JSON rule model via `to_spec()`).
+def registry_for(constraints: Iterable[Any]) -> ScheduleRegistry:
+    """One plugin per pick (a spec, or a JSON constraint model via `to_spec()`).
 
     Each plugin is built from the pick's own fields, so it carries the same
     knobs and parameters; the k-th repeat of a name is named ``"<name>#<k>"``
@@ -974,14 +976,14 @@ def registry_for(rules: Iterable[Any]) -> RuleRegistry:
     """
     seen: Counter[str] = Counter()
     plugins = []
-    for rule in rules:
-        spec = rule.to_spec() if hasattr(rule, "to_spec") else rule
+    for pick in constraints:
+        spec = pick.to_spec() if hasattr(pick, "to_spec") else pick
         plugin = PLUGINS[spec.name](**{f.name: getattr(spec, f.name) for f in fields(spec)})
         seen[spec.name] += 1
         if seen[spec.name] > 1:
             object.__setattr__(plugin, "name", f"{spec.name}#{seen[spec.name]}")
         plugins.append(plugin)
-    return RuleRegistry(plugins)
+    return ScheduleRegistry(plugins)
 
 
 # Every constraint at its defaults, in the engine catalog's order

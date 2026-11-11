@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "external-solver"
-version = "0.2.2"
+version = "0.2.3"
 description = "Exact CP-SAT models for the optimaru use cases: same problem JSON, same constraint selection, rescored by the engine."
 readme = "README.md"
 requires-python = ">=3.11"

@@ -39,6 +39,7 @@ ENGINE_ONLY = {
     "squared_order_age_cost",
     "pinned_stops_cost",
     "required_vehicle_cost",
+    "request_group_cost",  # optimaru 0.4.2
 }
 MEDIUM_UNIT = 1_000_000_000  # the engine's medium fold (into soft)
 

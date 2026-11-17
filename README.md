@@ -1,5 +1,10 @@
 # external-solver
 
+> **Moved.** Development continues in
+> [optimaru/exact-solver](https://github.com/optimaru/exact-solver) (package
+> `exact_solver`, from 0.4.0). This repository is frozen at 0.3.0: the `v0.3.0`
+> tag stays installable, but it gets no further changes.
+
 Exact CP-SAT models for the [optimaru](https://github.com/optimaru/optimaru)
 use cases. Each use case takes the same problem model and the same constraint
 selection as its `optimaru` counterpart, and every result is rescored by the
